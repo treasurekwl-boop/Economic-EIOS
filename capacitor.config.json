@@ -1,0 +1,8 @@
+{
+  "appId": "com.growthengine.app",
+  "appName": "Growth Engine",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0E1318"
+  }
+}
