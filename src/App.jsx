@@ -18,6 +18,7 @@ import Markets from "./components/views/Markets.jsx";
 import Network from "./components/views/Network.jsx";
 import Calendar from "./components/views/Calendar.jsx";
 import Schools from "./components/views/Schools.jsx";
+import Desk from "./components/views/Desk.jsx";
 
 export default function App() {
   const [view, setView] = useState("overview");
@@ -68,6 +69,7 @@ export default function App() {
             {view === "citizen" && <Citizen />}
             {view === "fluency" && <Fluency />}
             {view === "schools" && <Schools onOpenLens={openLens} />}
+            {view === "desk" && <Desk onOpenGraph={openGraph} />}
             {view === "fundamentals" && <Fundamentals onOpenGraph={openGraph} />}
             {view === "news" && <News onOpenGraph={openGraph} />}
             {view === "calendar" && <Calendar onOpenGraph={openGraph} />}

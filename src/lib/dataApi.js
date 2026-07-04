@@ -73,6 +73,18 @@ export async function fetchPrices() {
   return [];
 }
 
+// Watchlist price history for the Trading Desk (every-30-min GitHub Action).
+// Returns a map { id: { label, type, series:[[date,close]], last, prev } } or {}.
+export async function fetchInstruments() {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.from("instrument_series").select("*");
+      if (!error && data) return Object.fromEntries(data.map((r) => [r.id, r]));
+    } catch { /* no table yet / offline */ }
+  }
+  return {};
+}
+
 // The free live headlines wire (populated by the every-30-min GitHub Action).
 export async function fetchHeadlines(limit = 12) {
   if (isSupabaseConfigured && supabase) {
