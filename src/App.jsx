@@ -27,7 +27,7 @@ export default function App() {
   // Fire a shock: propagate it through the graph and make it the app-wide scenario.
   const fireScenario = useCallback((origin, dir) => {
     if (dir == null) return;
-    const map = propagate(origin, dir, 4);
+    const map = propagate(origin, dir);
     const impacts = Object.fromEntries(map);
     const node = nodeById(origin);
     setScenario({ origin, dir, originLabel: node?.label ?? origin, impacts, gdp: impacts.gdp ?? null, ts: Date.now() });

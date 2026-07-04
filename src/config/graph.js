@@ -247,35 +247,99 @@ const EDGE_LAG = {
 
 const toneSign = (tone) => (tone === "support" ? 1 : tone === "pressure" ? -1 : 0.3);
 
-// Bounded, cycle-safe forward propagation. `dir` = +1 (shock up) or −1 (down).
-// Each node expands once (on first arrival) so feedback loops can't blow up,
-// but a node still accumulates impulse from every parent that reaches it.
-export function propagate(originId, dir = 1, maxHops = 4) {
-  const result = new Map();
-  result.set(originId, { impulse: dir, hop: 0, lagWeeks: 0, origin: true });
-  let frontier = [{ id: originId, impulse: dir, lag: 0 }];
-  for (let hop = 1; hop <= maxHops; hop++) {
-    const next = [];
-    for (const f of frontier) {
-      for (const e of effectsOf(f.id)) {
-        const key = `${e.from}->${e.to}`;
-        const w = EDGE_W[key] ?? (e.tone === "mixed" ? 0.3 : 0.5);
-        const impulse = f.impulse * toneSign(e.tone) * w;
-        if (Math.abs(impulse) < 0.02) continue;
-        const lag = f.lag + (EDGE_LAG[key] ?? 10);
-        const prev = result.get(e.to);
-        if (!prev) {
-          result.set(e.to, { impulse, hop, lagWeeks: lag });
-          next.push({ id: e.to, impulse, lag });
-        } else if (!prev.origin) {
-          prev.impulse += impulse;
-          prev.lagWeeks = Math.min(prev.lagWeeks, lag);
-        }
-      }
-    }
-    frontier = next;
+// ── Linear input-output propagation with Monte-Carlo uncertainty ─────────────
+// The economy is modelled as a weight matrix W (Wij = signed pass-through from
+// node j into node i). A shock vector s propagates to the equilibrium
+// x = s + Wx + W²x + … — the truncated Neumann series, ≈ the Leontief inverse
+// (I − W)⁻¹s. Unlike a greedy walk this sums EVERY path and handles feedback
+// loops. Monte-Carlo draws perturb the weights to yield a distribution per node
+// (median + 90% band), so effects carry uncertainty rather than false precision.
+const NODE_IDX = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
+
+function buildW() {
+  const n = NODES.length;
+  const W = Array.from({ length: n }, () => new Float64Array(n));
+  for (const e of EDGES) {
+    const w = EDGE_W[`${e.from}->${e.to}`] ?? (e.tone === "mixed" ? 0.3 : 0.5);
+    W[NODE_IDX[e.to]][NODE_IDX[e.from]] += toneSign(e.tone) * w;
   }
-  return result;
+  return W;
+}
+const BASE_W = buildW();
+const NZ = [];  // sparse nonzero coordinates + base weight
+for (let i = 0; i < NODES.length; i++)
+  for (let j = 0; j < NODES.length; j++)
+    if (BASE_W[i][j] !== 0) NZ.push([i, j, BASE_W[i][j]]);
+
+function neumann(W, s, K, damping) {
+  const n = s.length;
+  const x = Float64Array.from(s);
+  let term = Float64Array.from(s);
+  const next = new Float64Array(n);
+  for (let k = 1; k <= K; k++) {
+    for (let i = 0; i < n; i++) {
+      let acc = 0; const Wi = W[i];
+      for (let j = 0; j < n; j++) acc += Wi[j] * term[j];
+      next[i] = acc * damping;
+    }
+    for (let i = 0; i < n; i++) { term[i] = next[i]; x[i] += next[i]; }
+  }
+  return x;
+}
+
+// Standard-normal draw (Box–Muller) for the weight perturbations.
+function gaussian() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+// Shortest cumulative lag from the origin to each node (Dijkstra over EDGE_LAG).
+function lagsFrom(originId) {
+  const dist = { [originId]: 0 };
+  const pq = [[0, originId]];
+  while (pq.length) {
+    let m = 0;
+    for (let i = 1; i < pq.length; i++) if (pq[i][0] < pq[m][0]) m = i;
+    const [d, u] = pq.splice(m, 1)[0];
+    if (d > (dist[u] ?? Infinity)) continue;
+    for (const e of effectsOf(u)) {
+      const nd = d + (EDGE_LAG[`${e.from}->${e.to}`] ?? 10);
+      if (nd < (dist[e.to] ?? Infinity)) { dist[e.to] = nd; pq.push([nd, e.to]); }
+    }
+  }
+  return dist;
+}
+
+// Returns Map<id, { impulse, lo, hi, lagWeeks }>. `impulse` is the MEDIAN effect;
+// [lo, hi] is the 90% Monte-Carlo band; lagWeeks is when it's first felt.
+export function propagate(originId, dir = 1, K = 6, { draws = 160, noise = 0.22, damping = 0.9 } = {}) {
+  const n = NODES.length;
+  const oi = NODE_IDX[originId];
+  if (oi == null) return new Map();
+  const s = new Float64Array(n); s[oi] = dir;
+
+  const samples = Array.from({ length: n }, () => new Float64Array(draws));
+  const W = BASE_W.map((r) => Float64Array.from(r));   // zeros stay zero
+  for (let d = 0; d < draws; d++) {
+    for (const [i, j, base] of NZ) W[i][j] = base * Math.exp(gaussian() * noise);  // lognormal jitter
+    const x = neumann(W, s, K, damping);
+    for (let i = 0; i < n; i++) samples[i][d] = x[i];
+  }
+
+  const lags = lagsFrom(originId);
+  const q = (arr, p) => arr[Math.min(arr.length - 1, Math.max(0, Math.floor(p * arr.length)))];
+  const map = new Map();
+  for (let i = 0; i < n; i++) {
+    const id = NODES[i].id;
+    if (id === originId) { map.set(id, { impulse: dir, lo: dir, hi: dir, lagWeeks: 0 }); continue; }
+    const arr = Array.from(samples[i]).sort((a, b) => a - b);
+    const lo = q(arr, 0.05), median = q(arr, 0.5), hi = q(arr, 0.95);
+    if (Math.abs(median) < 0.02 && Math.abs(lo) < 0.02 && Math.abs(hi) < 0.02) continue;
+    map.set(id, { impulse: median, lo, hi, lagWeeks: lags[id] ?? 999 });
+  }
+  return map;
 }
 
 export function lagLabel(weeks) {

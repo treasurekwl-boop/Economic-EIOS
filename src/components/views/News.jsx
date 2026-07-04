@@ -209,7 +209,7 @@ function WireTab({ wire }) {
 }
 
 function ImpactPanel({ origin, dir, tone, implications }) {
-  const map = propagate(origin, dir, 4);
+  const map = propagate(origin, dir);
   const impacts = [...map.entries()].filter(([id]) => id !== origin)
     .map(([id, v]) => ({ id, ...v })).sort((a, b) => Math.abs(b.impulse) - Math.abs(a.impulse)).slice(0, 8);
   const maxImp = Math.max(...impacts.map((i) => Math.abs(i.impulse)), 0.001);
