@@ -16,7 +16,7 @@ import { LENSES, lensById, LENSES_DISCLAIMER } from "../../config/lenses.js";
 const TONE = { support: "#7FB58A", pressure: "#D8735E", mixed: "#C6A15B" };
 const UP = "#7FB58A", DOWN = "#D8735E";
 
-export default function Network({ initialFocus, initialShock, linkToken }) {
+export default function Network({ initialFocus, initialShock, initialLens, linkToken }) {
   const { fx } = useEngine();
   const { fireScenario } = useScenario();
   const [focusId, setFocusId] = useState(initialFocus || "rand");
@@ -150,7 +150,7 @@ export default function Network({ initialFocus, initialShock, linkToken }) {
       {mode === "explore" ? (
         <ExploreView focus={focus} fType={fType} drivers={drivers} effects={effects} valueOf={valueOf} go={go} />
       ) : (
-        <SimulateView focus={focus} shockDir={shockDir} valueOf={valueOf} go={go} />
+        <SimulateView focus={focus} shockDir={shockDir} valueOf={valueOf} go={go} initialLens={initialLens} linkToken={linkToken} />
       )}
 
       <div className="mt-5">
@@ -252,9 +252,11 @@ function ExploreView({ focus, fType, drivers, effects, valueOf, go }) {
 }
 
 // ── Simulate: shock cascade ──
-function SimulateView({ focus, shockDir, valueOf, go }) {
+function SimulateView({ focus, shockDir, valueOf, go, initialLens, linkToken }) {
   // Which "school of thought" re-weights the channels. Default = New Keynesian.
-  const [lens, setLens] = useState("nk");
+  const [lens, setLens] = useState(initialLens || "nk");
+  // Honour a lens chosen when deep-linking in from the Schools reference.
+  useEffect(() => { if (initialLens) setLens(initialLens); }, [linkToken]); // eslint-disable-line react-hooks/exhaustive-deps
   const prop = useMemo(() => propagate(focus.id, shockDir, 6, { lens }), [focus.id, shockDir, lens]);
   const impacts = [...prop.entries()].filter(([id]) => id !== focus.id)
     .map(([id, v]) => ({ id, ...v, uncertain: Math.sign(v.lo) !== Math.sign(v.hi) }))

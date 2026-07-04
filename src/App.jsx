@@ -17,10 +17,11 @@ import News from "./components/views/News.jsx";
 import Markets from "./components/views/Markets.jsx";
 import Network from "./components/views/Network.jsx";
 import Calendar from "./components/views/Calendar.jsx";
+import Schools from "./components/views/Schools.jsx";
 
 export default function App() {
   const [view, setView] = useState("overview");
-  const [graphLink, setGraphLink] = useState({ focus: "rand", dir: null, token: 0 });
+  const [graphLink, setGraphLink] = useState({ focus: "rand", dir: null, lens: "nk", token: 0 });
   const [scenario, setScenario] = useState(null);
   const label = VIEWS.find((v) => v.id === view)?.label ?? "Overview";
 
@@ -34,12 +35,16 @@ export default function App() {
   }, []);
   const clearScenario = useCallback(() => setScenario(null), []);
 
-  // Any view can open the Intelligence graph on a node — and (with a dir) fire it.
-  const openGraph = useCallback((focus, dir = null) => {
-    setGraphLink((g) => ({ focus, dir, token: g.token + 1 }));
+  // Any view can open the Intelligence graph on a node — and (with a dir) fire it,
+  // optionally through a chosen school-of-thought lens.
+  const openGraph = useCallback((focus, dir = null, lens = "nk") => {
+    setGraphLink((g) => ({ focus, dir, lens, token: g.token + 1 }));
     if (dir != null) fireScenario(focus, dir);
     setView("network");
   }, [fireScenario]);
+
+  // Jump straight into a lens comparison from the Schools reference.
+  const openLens = useCallback((lens) => openGraph("G", 1, lens), [openGraph]);
 
   return (
     <ScenarioContext.Provider value={{ scenario, fireScenario, clearScenario }}>
@@ -62,6 +67,7 @@ export default function App() {
             {view === "diagnosis" && <Diagnosis />}
             {view === "citizen" && <Citizen />}
             {view === "fluency" && <Fluency />}
+            {view === "schools" && <Schools onOpenLens={openLens} />}
             {view === "fundamentals" && <Fundamentals onOpenGraph={openGraph} />}
             {view === "news" && <News onOpenGraph={openGraph} />}
             {view === "calendar" && <Calendar onOpenGraph={openGraph} />}
@@ -70,6 +76,7 @@ export default function App() {
               <Network
                 initialFocus={graphLink.focus}
                 initialShock={graphLink.dir != null ? { dir: graphLink.dir } : undefined}
+                initialLens={graphLink.lens}
                 linkToken={graphLink.token}
               />
             )}
