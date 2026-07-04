@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Newspaper, ArrowRight, Radio, Share2, ChevronDown, Zap, TrendingUp, TrendingDown, ShieldAlert, Database } from "lucide-react";
+import { Newspaper, ArrowRight, Radio, Share2, ChevronDown, Zap, TrendingUp, TrendingDown, ShieldAlert, Database, ExternalLink } from "lucide-react";
 import { NEWS_AS_OF, TONES, IMPLICATIONS_DISCLAIMER } from "../../config/news.js";
 import { propagate, nodeById, lagLabel } from "../../config/graph.js";
-import { fetchNews } from "../../lib/dataApi.js";
+import { fetchNews, fetchHeadlines } from "../../lib/dataApi.js";
 import { tint } from "../../config/palette.js";
 import Insight from "../ui/Insight.jsx";
 
@@ -14,10 +14,12 @@ export default function News({ onOpenGraph }) {
   const [items, setItems] = useState([]);       // [{ story, graph, implications }]
   const [source, setSource] = useState("builtin");
   const [loading, setLoading] = useState(true);
+  const [wire, setWire] = useState([]);          // live headlines (free 30-min feed)
 
   useEffect(() => {
     let alive = true;
     fetchNews().then((r) => { if (alive) { setItems(r.items); setSource(r.source); setLoading(false); } });
+    fetchHeadlines(12).then((h) => { if (alive) setWire(h); });
     return () => { alive = false; };
   }, []);
 
@@ -48,6 +50,30 @@ export default function News({ onOpenGraph }) {
         Amateurs read the event; analysts read the channel. Every story below fires a real shock through the economic brain —
         you see precisely which indicators move, by how much, and when.
       </Insight>
+
+      {/* Live wire — free headlines feed, auto-updated every 30 min */}
+      {wire.length > 0 && (
+        <div className="mt-5 rounded-xl border p-4" style={{ borderColor: tint("#4FB8F0", 0.3), background: "linear-gradient(160deg, #131614, #101311)" }}>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="dot-live" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#7FB58A" }}>Live wire</span>
+            <span className="font-mono text-[9px]" style={{ color: "#565B54" }}>· auto-updates every 30 min · headlines only, not analysed</span>
+          </div>
+          <div className="space-y-0.5">
+            {wire.map((h, i) => (
+              <a key={i} href={h.link} target="_blank" rel="noreferrer"
+                className="group flex items-start gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-white/[0.02]">
+                <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full" style={{ background: "#4FB8F0" }} />
+                <span className="min-w-0 flex-1">
+                  <span className="text-[12.5px] text-ink group-hover:underline">{h.title}</span>
+                  <span className="ml-2 whitespace-nowrap font-mono text-[9.5px]" style={{ color: "#565B54" }}>{h.source} · {ago(h.published_at)}</span>
+                </span>
+                <ExternalLink className="mt-1 h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-60" style={{ color: "#4FB8F0" }} />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tone filter */}
       <div className="mt-5 flex flex-wrap gap-2">
@@ -135,6 +161,14 @@ export default function News({ onOpenGraph }) {
       </footer>
     </div>
   );
+}
+
+function ago(iso) {
+  if (!iso) return "";
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
 }
 
 function ImpactPanel({ origin, dir, tone, implications }) {

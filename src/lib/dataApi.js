@@ -61,3 +61,18 @@ export async function fetchReleases() {
   }
   return { items: null, source: "builtin" };
 }
+
+// The free live headlines wire (populated by the every-30-min GitHub Action).
+export async function fetchHeadlines(limit = 12) {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("headlines")
+        .select("title,link,source,published_at")
+        .order("published_at", { ascending: false })
+        .limit(limit);
+      if (!error && data) return data;
+    } catch { /* no table yet / offline */ }
+  }
+  return [];
+}

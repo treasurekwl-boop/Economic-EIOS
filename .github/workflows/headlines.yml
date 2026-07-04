@@ -1,0 +1,31 @@
+name: Headlines wire
+
+# Free 24/7 live headlines: every 30 minutes, pull SA-economy news and upsert it
+# into Supabase. Public repo → GitHub Actions minutes are free and unlimited.
+# No npm install (the script uses only global fetch). Secrets are server-side.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: headlines
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch & upsert headlines
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/fetch-headlines.mjs
