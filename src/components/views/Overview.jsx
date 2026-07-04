@@ -8,6 +8,7 @@ import { tnum, randOfPP } from "../../lib/format.js";
 import Stat from "../ui/Stat.jsx";
 import Gauge from "../ui/Gauge.jsx";
 import InfoTip from "../ui/InfoTip.jsx";
+import LivePrices from "../ui/LivePrices.jsx";
 
 const GOLD = "#C6A15B", TEAL = "#6FBDB4", SAGE = "#7FB58A", CLAY = "#D8735E", VIOLET = "#A99BF5";
 
@@ -119,6 +120,9 @@ export default function Overview({ onNavigate }) {
         <Stat label="Inflation" value={`${out.infl.toFixed(1)}%`} tone={inflOK ? "ok" : "alert"} sub={inflOK ? "near 3% target" : "above target band"} />
         <Stat label="Net jobs" value={`${out.djobs >= 0 ? "+" : ""}${Math.round(out.djobs)}k`} tone={out.djobs >= PARAMS.NEW_ENTRANTS ? "ok" : "alert"} sub={out.djobs >= PARAMS.NEW_ENTRANTS ? "unemployment falls" : "too few for entrants"} />
       </div>
+
+      {/* Live markets — free 30-min FX + commodity feed */}
+      <LivePrices />
 
       {/* Live rand — mobile only (the sidebar pins it on desktop) */}
       {fx && (

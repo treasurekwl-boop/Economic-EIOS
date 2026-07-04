@@ -1,8 +1,8 @@
-name: Headlines wire
+name: Live data (headlines + prices)
 
-# Free 24/7 live headlines: every 30 minutes, pull SA-economy news and upsert it
-# into Supabase. Public repo → GitHub Actions minutes are free and unlimited.
-# No npm install (the script uses only global fetch). Secrets are server-side.
+# Free 24/7 live data: every 30 minutes, pull SA-economy headlines and FX +
+# commodity prices, and upsert into Supabase. Public repo → GitHub Actions
+# minutes are free and unlimited. No npm install (scripts use global fetch only).
 
 on:
   schedule:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: headlines
+  group: live-data
   cancel-in-progress: true
 
 jobs:
@@ -24,8 +24,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Fetch & upsert headlines
+      - name: Headlines
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/fetch-headlines.mjs
+      - name: Prices (FX + commodities)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/fetch-prices.mjs

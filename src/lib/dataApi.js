@@ -62,6 +62,17 @@ export async function fetchReleases() {
   return { items: null, source: "builtin" };
 }
 
+// Live FX + commodity prices (populated by the every-30-min GitHub Action).
+export async function fetchPrices() {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.from("market_prices").select("*");
+      if (!error && data) return data;
+    } catch { /* no table yet / offline */ }
+  }
+  return [];
+}
+
 // The free live headlines wire (populated by the every-30-min GitHub Action).
 export async function fetchHeadlines(limit = 12) {
   if (isSupabaseConfigured && supabase) {
