@@ -3,11 +3,27 @@
 // its transmission channel: event → channel → the indicator it moves. Curated
 // against verified reporting at each data refresh; the analysis explains WHY
 // each story matters, not just what happened.
-// Last curated: 3 July 2026.
+// Last curated: 4 July 2026.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // tone: tailwind (good for the economy) | headwind (bad) | watch (could go either way)
 export const NEWS = [
+  {
+    id: "rand-rally-jul", date: "3 Jul 2026", source: "Market data / SARB", tone: "tailwind",
+    title: "Rand extends its rally to ~R16.22/$ — firmest levels in weeks",
+    what: "USD/ZAR slipped to around R16.22 on 3 July from ~R16.56 a week earlier, extending the recovery that began when the US–Iran ceasefire unwound oil's risk premium. The currency is now holding at the strong end of its 2026 range.",
+    why: ["oil risk premium keeps fading", "import bill cheaper", "inflation pass-through eases further", "SARB's hike case weakens"],
+    impact: "A firmer rand heading into the 23 July MPC decision strengthens the case for a hold — though it's also squeezing rand-hedge earners like Absa's African operations.",
+    tags: ["Rand", "CPI", "Repo"],
+  },
+  {
+    id: "mining-pgm-surge", date: "Jun 2026 (Apr data)", source: "Stats SA mining & manufacturing production", tone: "watch",
+    title: "Mining output jumps 8.2% on a 36.5% PGM surge — manufacturing keeps shrinking",
+    what: "Mining production rose 8.2% y/y, driven by a 36.5% jump in platinum-group-metals output, while manufacturing fell 2.9% with basic iron & steel the main drag — confirming a two-speed industrial economy.",
+    why: ["PGM output ↑", "mineral export earnings ↑", "current account improves", "manufacturing still contracts", "factory jobs still at risk"],
+    impact: "Echoes the PMI story: strength is concentrated in mining/PGMs while broader manufacturing — already down 0.8% in Q1 GDP — can't find traction.",
+    tags: ["Mining", "Manufacturing", "Exports"],
+  },
   {
     id: "pmi-jun", date: "1 Jul 2026", source: "Absa / S&P Global PMI", tone: "headwind",
     title: "Factory activity stalls — production back in contraction",
@@ -15,14 +31,6 @@ export const NEWS = [
     why: ["new orders ↓", "output contracts", "manufacturing drags GDP", "factory jobs at risk"],
     impact: "Manufacturing stays the recovery's weak link — the sector that fell 0.8% in Q1 GDP still can't find momentum even as fuel relief lands.",
     tags: ["Manufacturing", "GDP", "Jobs"],
-  },
-  {
-    id: "ceasefire-oil", date: "late Jun 2026", source: "Markets / energy wires", tone: "tailwind",
-    title: "US–Iran MOU collapses Brent's monthly average from ~$105 to ~$87",
-    what: "The Strait of Hormuz risk premium that drove oil above $100 unwound after the US–Iran memorandum. The rand firmed from ~R16.65 to an average ~R16.37/$ as the import-bill outlook improved; spot Brent fell toward ~$75.",
-    why: ["Brent −$29", "basic fuel price ↓", "transport CPI cools", "inflation expectations ease", "pressure off SARB"],
-    impact: "Biggest single disinflation impulse of the year. If it holds, the July CPI print (due Aug) turns the corner.",
-    tags: ["CPI", "Rand", "Repo"],
   },
   {
     id: "july-fuel", date: "1 Jul 2026 · in effect", source: "DMRE fuel adjustment", tone: "tailwind",
@@ -90,7 +98,7 @@ export const NEWS = [
   },
 ];
 
-export const NEWS_AS_OF = "3 July 2026";
+export const NEWS_AS_OF = "4 July 2026";
 
 export const TONES = {
   tailwind: { label: "Tailwind", color: "#7FB58A" },
@@ -103,8 +111,9 @@ export const TONES = {
 // literally lighting up every indicator it moves.
 // dir: +1 the origin rises, −1 it falls. verb = how to describe firing it.
 export const NEWS_GRAPH = {
+  "rand-rally-jul":   { origin: "rand",   dir: -1, verb: "Trace the rand's rally" },
+  "mining-pgm-surge": { origin: "mining", dir: 1,  verb: "Trace the mining surge" },
   "pmi-jun":       { origin: "manuf",     dir: -1, verb: "Trace the factory slump" },
-  "ceasefire-oil": { origin: "oil",       dir: -1, verb: "Trace oil's collapse" },
   "july-fuel":     { origin: "fuel",      dir: -1, verb: "Trace the fuel cut" },
   "mpc-july":      { origin: "repo",      dir: 1,  verb: "Trace a rate hike" },
   "qlfs-q1":       { origin: "jobs",      dir: -1, verb: "Trace the job losses" },
@@ -120,17 +129,23 @@ export const NEWS_GRAPH = {
 // about exposure, NOT personalised financial advice or a prediction of any
 // asset's price. See IMPLICATIONS_DISCLAIMER.
 export const IMPLICATIONS = {
+  "rand-rally-jul": [
+    { theme: "Importers & retailers of imported goods", dir: "up", note: "A stronger rand lowers the landed cost of everything bought in dollars." },
+    { theme: "Exporters & rand-hedge earners", dir: "down", note: "Miners and multinationals earning offshore see fewer rand per dollar of revenue." },
+    { theme: "Inflation-linked assets", dir: "down", note: "A firmer currency eases price pressure, cooling the inflation premium." },
+    { theme: "Foreign tourists & travel costs", dir: "down", note: "A stronger rand makes South Africa pricier for dollar-based visitors." },
+  ],
+  "mining-pgm-surge": [
+    { theme: "PGM miners & mining-services suppliers", dir: "up", note: "Higher output and strong platinum prices lift revenue across the value chain." },
+    { theme: "Rail & port capacity", dir: "down", note: "Stronger export volumes test Transnet's already-stretched corridors." },
+    { theme: "Manufacturers & factory workers", dir: "down", note: "Basic iron & steel and broader manufacturing keep contracting even as mining booms." },
+    { theme: "The current account", dir: "up", note: "Bigger mineral export earnings support the trade and current-account balance." },
+  ],
   "pmi-jun": [
     { theme: "Manufacturers & industrial jobs", dir: "down", note: "Contracting output puts factory employment under pressure." },
     { theme: "Steel, chemicals, auto suppliers", dir: "down", note: "Weak orders ripple up the industrial supply chain." },
     { theme: "Importers of finished goods", dir: "up", note: "Local weakness leaves room for imported substitutes." },
     { theme: "Rate-cut case", dir: "up", note: "Soft activity strengthens the argument for eventual easing." },
-  ],
-  "ceasefire-oil": [
-    { theme: "Transport & logistics", dir: "up", note: "Cheaper diesel cuts freight, taxi and delivery costs." },
-    { theme: "Consumers & retail", dir: "up", note: "Lower pump prices free up household income to spend." },
-    { theme: "Fuel-levy revenue", dir: "down", note: "Government's fuel take softens as prices fall." },
-    { theme: "Rand-hedge exposure", dir: "down", note: "A firmer rand reduces the value of offshore hedges." },
   ],
   "july-fuel": [
     { theme: "Freight & food logistics", dir: "up", note: "Diesel down R3.59/l lowers the cost of moving everything." },
