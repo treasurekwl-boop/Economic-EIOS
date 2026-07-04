@@ -10,3 +10,7 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # These are PUBLISHABLE client keys (Supabase URL + anon key). They're meant to
+  # ship in the browser bundle, so tell Netlify's secret scanner not to flag them.
+  # Never add the service_role/secret key here.
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY"
