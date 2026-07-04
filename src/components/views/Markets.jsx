@@ -14,6 +14,7 @@ import { tint } from "../../config/palette.js";
 import { tnum } from "../../lib/format.js";
 import InfoTip from "../ui/InfoTip.jsx";
 import Insight from "../ui/Insight.jsx";
+import FinancialMarkets from "./FinancialMarkets.jsx";
 
 const ICONS = {
   Fuel, Wheat, Bolt, Drumstick, Home, HardHat, Sandwich, Beef, Egg, Candy,
@@ -70,6 +71,7 @@ function PriceHistory({ m }) {
 }
 
 export default function Markets({ onOpenGraph }) {
+  const [tab, setTab] = useState("everyday");   // "everyday" (goods & services) | "financial" (asset classes)
   const [cat, setCat] = useState("food");
   const [id, setId] = useState("maize");
   const [dD, setDD] = useState(0);
@@ -127,7 +129,27 @@ export default function Markets({ onOpenGraph }) {
   const Icon = ICONS[m.icon];
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 animate-fade-up">
+    <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6">
+      {/* Mode toggle: everyday goods & services vs financial asset markets */}
+      <div className="mb-5 flex gap-1.5">
+        {[["everyday", "Everyday markets"], ["financial", "Financial markets"]].map(([key, lbl]) => {
+          const on = tab === key;
+          return (
+            <button key={key} onClick={() => setTab(key)}
+              className="rounded-lg border px-3.5 py-2 text-[12.5px] font-medium transition-all"
+              style={on
+                ? { background: tint("#D98BB6", 0.14), borderColor: tint("#D98BB6", 0.55), color: "#D98BB6" }
+                : { background: "rgba(19,22,20,0.6)", borderColor: "rgba(35,40,35,1)", color: "#8A8F88" }}>
+              {lbl}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "financial" ? (
+        <FinancialMarkets onOpenGraph={onOpenGraph} />
+      ) : (
+      <div className="animate-fade-up">
       {/* Header */}
       <div className="mb-5">
         <div className="mb-1 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-pink">
@@ -371,6 +393,8 @@ export default function Markets({ onOpenGraph }) {
         credit) so you can see load-shedding, water restrictions, unemployment and restrictive monetary policy as what they
         are in micro terms: rationing at a blocked price.
       </footer>
+      </div>
+      )}
     </div>
   );
 }
