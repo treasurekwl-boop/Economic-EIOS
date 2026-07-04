@@ -69,6 +69,19 @@ export function executionPlan({ sigma, frac, spread = 0, days = 1, permanentFrac
   return { impact, permanent, temporary, halfSpread, timingRisk, participation, expectedCost: halfSpread + impact };
 }
 
+// Spread decomposition from the microstructure brief. d = +1 buyer-initiated,
+// −1 seller-initiated. Effective spread = what you paid vs the midpoint at the
+// trade; realised spread = what the liquidity supplier kept after a markout; the
+// difference is the adverse-selection / permanent-price-move component.
+export function spreadDecomp(price, midAtTrade, dir, midAfter) {
+  const d = dir >= 0 ? 1 : -1;
+  const eff = 2 * d * (price - midAtTrade);
+  const real = 2 * d * (price - midAfter);
+  const adverse = eff - real;
+  const bps = (x) => (midAtTrade ? (x / midAtTrade) * 1e4 : null);
+  return { eff, real, adverse, effBps: bps(eff), realBps: bps(real), adverseBps: bps(adverse) };
+}
+
 // Roll's implied effective spread from the serial covariance of price changes:
 // s = 2·√(−cov(Δp_t, Δp_{t−1})). Only defined when that covariance is negative
 // (bid-ask bounce). Coarse on daily data — a rough proxy, not a real quote.

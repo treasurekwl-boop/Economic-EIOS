@@ -2,10 +2,13 @@ import { useState, useMemo } from "react";
 import { Calculator, Gauge, Layers3, BookOpen, ChevronDown, Zap } from "lucide-react";
 import {
   fairForwardPrice, fxForward, couponBond, premiumDiscount, unsmoothReturn,
-  executionPlan, rollSpread, pnlWithFunding,
+  executionPlan, rollSpread, pnlWithFunding, spreadDecomp,
 } from "../../lib/quant.js";
 import { INSTRUMENTS, DESK_SHOCKS } from "../../config/desk.js";
-import { ORDER_TYPES, LIQUIDITY_MEASURES, EXEC_ALGOS, COST_COMPONENTS, MICRO_NOTE } from "../../config/microstructure.js";
+import {
+  ORDER_TYPES, LIQUIDITY_MEASURES, EXEC_ALGOS, COST_COMPONENTS,
+  SPREAD_FORCES, MONITOR_ITEMS, DESIGN_PRINCIPLES, IMPL_WORKFLOW, MICRO_NOTE,
+} from "../../config/microstructure.js";
 import { propagate } from "../../config/graph.js";
 import { usePersistedState } from "../../lib/usePersistedState.js";
 import { tint } from "../../config/palette.js";
@@ -72,6 +75,18 @@ export default function QuantDesk({ data }) {
           note="Recovers the true return hidden by smoothed marks"
           fields={[{ k: "rT", label: "Reported r %", def: 2, step: 0.1 }, { k: "rPrev", label: "Prior r %", def: 1.5, step: 0.1 }, { k: "rho", label: "Smoothing ρ", def: 0.7, step: 0.05 }]}
           compute={(v) => ({ label: "True (unsmoothed) return", value: `${(unsmoothReturn(v.rT / 100, v.rPrev / 100, v.rho) * 100).toFixed(2)}%` })} />
+
+        <Calc title="Spread decomposition (effective / realised)" color="#D98BB6"
+          note="eff = 2·d·(price − mid); realised uses the mid after; the gap = adverse selection"
+          fields={[
+            { k: "price", label: "Trade price", def: 16.25, step: 0.01 }, { k: "mid", label: "Mid at trade", def: 16.24, step: 0.01 },
+            { k: "dir", label: "Side +1 buy / −1 sell", def: 1, step: 1 }, { k: "midAfter", label: "Mid after (markout)", def: 16.26, step: 0.01 },
+          ]}
+          compute={(v) => { const s = spreadDecomp(v.price, v.mid, v.dir, v.midAfter); return { rows: [
+            { label: "Effective spread", value: `${s.effBps.toFixed(1)} bps`, color: "#ECEAE3" },
+            { label: "Realised spread", value: `${s.realBps.toFixed(1)} bps`, color: "#7FB58A" },
+            { label: "Adverse selection", value: `${s.adverseBps.toFixed(1)} bps`, color: "#D8735E" },
+          ] }; }} />
       </div>
 
       <PortfolioStress data={data} />
@@ -100,7 +115,17 @@ function Calc({ title, note, fields, compute, color }) {
           </label>
         ))}
       </div>
-      {res && (
+      {res && res.rows && (
+        <div className="mt-3 space-y-1.5 border-t pt-2.5" style={{ borderColor: "#1E231F" }}>
+          {res.rows.map((r, i) => (
+            <div key={i} className="flex items-baseline justify-between">
+              <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "#6B7068" }}>{r.label}</span>
+              <span className="font-display text-[16px]" style={{ color: r.color ?? color, fontVariantNumeric: "tabular-nums" }}>{r.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {res && !res.rows && (
         <div className="mt-3 flex items-baseline justify-between border-t pt-2.5" style={{ borderColor: "#1E231F" }}>
           <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "#6B7068" }}>{res.label}</span>
           <span className="font-display text-[20px]" style={{ color: res.color ?? color, fontVariantNumeric: "tabular-nums" }}>{res.value}</span>
@@ -258,44 +283,79 @@ function PortfolioStress({ data }) {
   );
 }
 
-// Collapsible reference tables from the microstructure brief.
+// Full-fidelity reference tables + guidance blocks from the microstructure brief.
+function RefBlock({ id, open, setOpen, title, children }) {
+  const on = open === id;
+  return (
+    <div className="overflow-hidden rounded-xl border" style={{ borderColor: "#232823", background: "linear-gradient(155deg, #131614, #101311)" }}>
+      <button onClick={() => setOpen(on ? null : id)} className="flex w-full items-center justify-between px-4 py-2.5 text-left">
+        <span className="text-[13px] font-medium text-ink">{title}</span>
+        <ChevronDown className="h-4 w-4 transition-transform" style={{ color: "#565B54", transform: on ? "rotate(180deg)" : "none" }} />
+      </button>
+      {on && <div className="border-t px-4 py-3" style={{ borderColor: "#1E231F", background: "rgba(8,10,9,0.5)" }}>{children}</div>}
+    </div>
+  );
+}
+
 function Reference() {
   const [open, setOpen] = useState(null);
-  const blocks = [
-    { id: "orders", title: "Order types", rows: ORDER_TYPES.map((o) => ({ a: o.name, b: `${o.use} — ${o.tradeoff}` })) },
-    { id: "algos", title: "Execution algorithms", rows: EXEC_ALGOS.map((o) => ({ a: o.name, b: `${o.goal}. Best: ${o.best}. Watch: ${o.weak}` })) },
-    { id: "liq", title: "Liquidity measures", rows: LIQUIDITY_MEASURES.map((o) => ({ a: o.name, b: `${o.what} (${o.limit})` })) },
-    { id: "cost", title: "Transaction-cost components", rows: COST_COMPONENTS.map((o) => ({ a: o.name, b: o.what })) },
+  const tables = [
+    { id: "orders", title: "Order types", data: ORDER_TYPES },
+    { id: "algos", title: "Execution algorithms", data: EXEC_ALGOS },
+    { id: "liq", title: "Liquidity measures", data: LIQUIDITY_MEASURES },
+    { id: "cost", title: "Transaction-cost components", data: COST_COMPONENTS },
   ];
+  const pairList = (arr) => (
+    <div className="space-y-2">
+      {arr.map((p) => (
+        <div key={p.name} className="flex gap-2.5 text-[12px] leading-relaxed">
+          <span className="w-[128px] shrink-0 font-medium text-ink">{p.name}</span>
+          <span className="flex-1" style={{ color: "#9A978E" }}>{p.desc}</span>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="mt-4">
       <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-2">
         <BookOpen className="h-3.5 w-3.5" /> Microstructure reference
       </div>
       <div className="space-y-2">
-        {blocks.map((bl) => {
-          const on = open === bl.id;
-          return (
-            <div key={bl.id} className="overflow-hidden rounded-xl border" style={{ borderColor: "#232823", background: "linear-gradient(155deg, #131614, #101311)" }}>
-              <button onClick={() => setOpen(on ? null : bl.id)} className="flex w-full items-center justify-between px-4 py-2.5 text-left">
-                <span className="text-[13px] font-medium text-ink">{bl.title}</span>
-                <ChevronDown className="h-4 w-4 transition-transform" style={{ color: "#565B54", transform: on ? "rotate(180deg)" : "none" }} />
-              </button>
-              {on && (
-                <div className="border-t px-4 py-2.5" style={{ borderColor: "#1E231F", background: "rgba(8,10,9,0.5)" }}>
-                  <div className="space-y-1.5">
-                    {bl.rows.map((r, i) => (
-                      <div key={i} className="flex gap-2.5 text-[12px] leading-relaxed">
-                        <span className="w-[128px] shrink-0 font-medium text-ink">{r.a}</span>
-                        <span className="flex-1" style={{ color: "#9A978E" }}>{r.b}</span>
+        {tables.map((t) => (
+          <RefBlock key={t.id} id={t.id} open={open} setOpen={setOpen} title={t.title}>
+            <div className="space-y-2">
+              {t.data.rows.map((r, i) => (
+                <div key={i} className="rounded-lg border px-3 py-2" style={{ borderColor: "#1E231F", background: "rgba(12,14,13,0.4)" }}>
+                  <div className="mb-1 text-[12.5px] font-medium text-ink">{r.name}</div>
+                  <dl className="space-y-1">
+                    {t.data.fields.map((f) => (
+                      <div key={f.k} className="flex gap-2.5 text-[11.5px] leading-relaxed">
+                        <dt className="w-[104px] shrink-0 font-mono text-[8.5px] uppercase tracking-wider" style={{ color: "#6B7068" }}>{f.label}</dt>
+                        <dd className="flex-1" style={{ color: "#9A978E" }}>{r[f.k]}</dd>
                       </div>
                     ))}
-                  </div>
+                  </dl>
                 </div>
-              )}
+              ))}
             </div>
-          );
-        })}
+          </RefBlock>
+        ))}
+
+        <RefBlock id="forces" open={open} setOpen={setOpen} title="What the spread pays for">{pairList(SPREAD_FORCES)}</RefBlock>
+
+        <RefBlock id="monitor" open={open} setOpen={setOpen} title="Execution-monitoring dashboard">
+          <p className="mb-2 text-[11.5px] leading-relaxed" style={{ color: "#9A978E" }}>Monitor state (what the market looked like) separately from output (what your trade did):</p>
+          <div className="flex flex-wrap gap-1.5">
+            {MONITOR_ITEMS.map((m) => <span key={m} className="rounded-full border px-2.5 py-1 text-[11px]" style={{ borderColor: "#242A29", color: "#9A978E" }}>{m}</span>)}
+          </div>
+        </RefBlock>
+
+        <RefBlock id="principles" open={open} setOpen={setOpen} title="Algorithm design principles">{pairList(DESIGN_PRINCIPLES)}</RefBlock>
+
+        <RefBlock id="workflow" open={open} setOpen={setOpen} title="Implementation workflow">
+          <p className="text-[12.5px] leading-relaxed" style={{ color: "#C9C6BD" }}>{IMPL_WORKFLOW}</p>
+        </RefBlock>
       </div>
     </div>
   );
