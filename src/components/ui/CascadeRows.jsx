@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ArrowRight, CornerDownRight } from "lucide-react";
-import { nodeById, NODE_TYPES, explainChain, lagLabel, readImpact } from "../../config/graph.js";
+import { nodeById, NODE_TYPES, explainChain, lagLabel, readDirection } from "../../config/graph.js";
 import { tint } from "../../config/palette.js";
 
 // A ranked list of what a shock touches — written so someone who has never
@@ -21,7 +21,7 @@ export default function CascadeRows({ origin, shockDir = 1, impacts, maxImp, val
       {impacts.map((im) => {
         const n = nodeById(im.id);
         const meta = NODE_TYPES[n?.type] ?? { color: "#8A8F88" };
-        const r = readImpact(origin, im.id, shockDir, im.uncertain);
+        const r = readDirection(im.id, im.impulse, im.uncertain);
         const c = r.color;
         // Plain reading — what happens, then whether that's good or bad.
         const verdict = r.unclear ? "could go either way" : r.sentiment === "good" ? "good news" : r.sentiment === "bad" ? "bad news" : null;

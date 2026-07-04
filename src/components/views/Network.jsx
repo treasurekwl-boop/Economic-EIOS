@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
-import { Share2, ArrowRight, ArrowLeft, Zap, Radio, TrendingUp, TrendingDown, Compass, Activity } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Share2, ArrowRight, ArrowLeft, Zap, Radio, TrendingUp, TrendingDown, Compass, Activity, Scale } from "lucide-react";
 import { useEngine } from "../../context/EngineContext.jsx";
 import { useScenario } from "../../context/ScenarioContext.jsx";
 import { LATEST } from "../../config/model.js";
 import {
-  NODES, EDGES, NODE_TYPES, driversOf, effectsOf, nodeById, tracePath, propagate, lagLabel, readImpact,
+  NODES, EDGES, NODE_TYPES, driversOf, effectsOf, nodeById, tracePath, propagate, pointEstimate, lagLabel, readDirection,
 } from "../../config/graph.js";
 import { tint } from "../../config/palette.js";
 import Insight from "../ui/Insight.jsx";
 import InfoTip from "../ui/InfoTip.jsx";
 import CascadeRows from "../ui/CascadeRows.jsx";
 import { TERMS } from "../../config/glossary.js";
+import { LENSES, lensById, LENSES_DISCLAIMER } from "../../config/lenses.js";
 
 const TONE = { support: "#7FB58A", pressure: "#D8735E", mixed: "#C6A15B" };
 const UP = "#7FB58A", DOWN = "#D8735E";
@@ -252,7 +253,9 @@ function ExploreView({ focus, fType, drivers, effects, valueOf, go }) {
 
 // ── Simulate: shock cascade ──
 function SimulateView({ focus, shockDir, valueOf, go }) {
-  const prop = propagate(focus.id, shockDir);
+  // Which "school of thought" re-weights the channels. Default = New Keynesian.
+  const [lens, setLens] = useState("nk");
+  const prop = useMemo(() => propagate(focus.id, shockDir, 6, { lens }), [focus.id, shockDir, lens]);
   const impacts = [...prop.entries()].filter(([id]) => id !== focus.id)
     .map(([id, v]) => ({ id, ...v, uncertain: Math.sign(v.lo) !== Math.sign(v.hi) }))
     .sort((a, b) => Math.abs(b.impulse) - Math.abs(a.impulse));
@@ -263,14 +266,18 @@ function SimulateView({ focus, shockDir, valueOf, go }) {
 
   const top3 = impacts.slice(0, 3);
   const dirWord = shockDir > 0 ? "up" : "down";
-  const gdpRead = gdp ? readImpact(focus.id, "gdp", shockDir, Math.sign(gdp.lo) !== Math.sign(gdp.hi)) : null;
+  const gdpRead = gdp ? readDirection("gdp", gdp.impulse, Math.sign(gdp.lo) !== Math.sign(gdp.hi)) : null;
+  const activeLens = lensById(lens);
 
   return (
     <>
+      <LensPicker lens={lens} setLens={setLens} />
+
       {/* Plain-English story of what just happened */}
       <div className="mt-4 rounded-2xl border p-5" style={{ borderColor: tint("#A99BF5", 0.25), background: "linear-gradient(155deg, rgba(169,155,245,0.06), #101311 60%)" }}>
         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#A99BF5" }}>
           <Zap className="h-3.5 w-3.5" /> What happens next
+          <span style={{ color: "#565B54" }}>· through the {activeLens.label} lens</span>
         </div>
         {top3.length ? (
           <>
@@ -280,7 +287,7 @@ function SimulateView({ focus, shockDir, valueOf, go }) {
             </p>
             <ul className="mt-2.5 space-y-1.5">
               {top3.map((im) => {
-                const r = readImpact(focus.id, im.id, shockDir, im.uncertain);
+                const r = readDirection(im.id, im.impulse, im.uncertain);
                 return (
                   <li key={im.id} className="flex items-baseline gap-2 text-[15px] leading-relaxed" style={{ color: "#C9C6BD" }}>
                     <span className="mt-1 h-2 w-2 shrink-0 self-center rounded-full" style={{ background: r.color }} />
@@ -328,7 +335,89 @@ function SimulateView({ focus, shockDir, valueOf, go }) {
           </p>
         )}
       </div>
+
+      <SchoolsCompare focus={focus} shockDir={shockDir} lens={lens} setLens={setLens} />
     </>
+  );
+}
+
+// The lens picker — pick the "school of thought" that re-weights the channels.
+function LensPicker({ lens, setLens }) {
+  const active = lensById(lens);
+  return (
+    <div className="mt-4 rounded-2xl border p-3.5" style={{ borderColor: tint("#6FBDB4", 0.22), background: "linear-gradient(155deg, rgba(111,189,180,0.05), #101311 60%)" }}>
+      <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#6FBDB4" }}>
+        <Scale className="h-3.5 w-3.5" /> Read it through a school of thought
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {LENSES.map((l) => {
+          const on = l.id === lens;
+          return (
+            <button key={l.id} onClick={() => setLens(l.id)}
+              className="rounded-full border px-3 py-1.5 text-left transition-colors"
+              style={{ borderColor: on ? "#6FBDB4" : "#242A29", background: on ? tint("#6FBDB4", 0.12) : "transparent" }}
+              onMouseEnter={(e) => !on && (e.currentTarget.style.borderColor = tint("#6FBDB4", 0.4))}
+              onMouseLeave={(e) => !on && (e.currentTarget.style.borderColor = "#242A29")}>
+              <span className="text-[12.5px]" style={{ color: on ? "#ECEAE3" : "#9A978E" }}>{l.label}</span>
+              <span className="ml-1.5 font-mono text-[8.5px] uppercase tracking-wider" style={{ color: on ? "#6FBDB4" : "#565B54" }}>{l.short}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2.5 text-[12.5px] leading-relaxed" style={{ color: "#C9C6BD" }}>{active.blurb}</p>
+    </div>
+  );
+}
+
+// The heart of the doc's thesis: run the SAME shock through every school and
+// show how much they disagree on the bottom-line GDP effect.
+function SchoolsCompare({ focus, shockDir, lens, setLens }) {
+  const rows = useMemo(
+    () => LENSES.map((l) => ({ ...l, gdp: pointEstimate(focus.id, shockDir, "gdp", l.id) })),
+    [focus.id, shockDir]
+  );
+  const maxAbs = Math.max(...rows.map((r) => Math.abs(r.gdp)), 0.001);
+  if (maxAbs < 0.02) return null; // the shock never reaches GDP — nothing to compare
+  const flip = rows.some((r) => r.gdp > 0.02) && rows.some((r) => r.gdp < -0.02); // schools split on direction
+
+  return (
+    <div className="mt-4 rounded-2xl border p-4" style={{ borderColor: "#232823", background: "linear-gradient(160deg, #131614, #101311)" }}>
+      <div className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#D8AF6A" }}>
+        <Scale className="h-3.5 w-3.5" /> How the schools disagree
+      </div>
+      <p className="mb-3 text-[12.5px] leading-relaxed" style={{ color: "#9A978E" }}>
+        The same shock, seen by each school — their bottom-line effect on <span style={{ color: "#C9C6BD" }}>GDP</span>. Longer bar = bigger effect{flip ? ", and here they even split on direction" : ""}. Where they diverge is where the assumptions matter most. Tap one to read the whole cascade through it.
+      </p>
+      <div className="space-y-1.5">
+        {rows.map((r) => {
+          const up = r.gdp > 0;
+          const c = up ? UP : DOWN;
+          const w = Math.max(2, (Math.abs(r.gdp) / maxAbs) * 100);
+          const on = r.id === lens;
+          return (
+            <button key={r.id} onClick={() => setLens(r.id)} title={r.tagline}
+              className="flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors"
+              style={{ borderColor: on ? tint("#6FBDB4", 0.5) : "#1E231F", background: on ? "rgba(111,189,180,0.06)" : "rgba(12,14,13,0.4)" }}
+              onMouseEnter={(e) => !on && (e.currentTarget.style.borderColor = "#2C332F")}
+              onMouseLeave={(e) => !on && (e.currentTarget.style.borderColor = "#1E231F")}>
+              <div className="w-[118px] shrink-0">
+                <div className="truncate text-[12.5px]" style={{ color: on ? "#ECEAE3" : "#C9C6BD" }}>{r.label}</div>
+                <div className="font-mono text-[8.5px] uppercase tracking-wider" style={{ color: "#565B54" }}>{r.short}</div>
+              </div>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(35,40,35,0.7)" }}>
+                <div className="h-full rounded-full" style={{ width: `${w}%`, background: `linear-gradient(90deg, ${tint(c, 0.5)}, ${c})` }} />
+              </div>
+              <span className="w-[70px] shrink-0 text-right font-mono text-[10px]" style={{ color: c }}>
+                {up ? "▲" : "▼"} {Math.abs(r.gdp).toFixed(2)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-3 border-t pt-2.5 font-mono text-[9px] leading-relaxed" style={{ borderColor: "#1E231F", color: "#565B54" }}>
+        ▲ = GDP rises, ▼ = GDP falls; the number is the modelled size, in the same units as the bars above. {LENSES_DISCLAIMER}
+      </p>
+    </div>
   );
 }
 

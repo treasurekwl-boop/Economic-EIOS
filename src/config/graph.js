@@ -7,6 +7,7 @@
 // chain. This is the connective tissue that makes the platform a digital twin
 // rather than a stack of dashboards.
 // ─────────────────────────────────────────────────────────────────────────────
+import { edgeMultiplier } from "./lenses.js";
 
 // Node categories → the six-accent premium palette + a couple of neutrals.
 export const NODE_TYPES = {
@@ -256,20 +257,35 @@ const toneSign = (tone) => (tone === "support" ? 1 : tone === "pressure" ? -1 : 
 // (median + 90% band), so effects carry uncertainty rather than false precision.
 const NODE_IDX = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
-function buildW() {
+// Build the weight matrix under a given "lens" (school of thought), which scales
+// each channel's pass-through. lens "nk" (the default) leaves everything at 1.
+// SIGNS come from the co-movement map (edgeCO), NOT the good/bad `tone` field:
+// tone doesn't compose (two "pressure" links in series would flip to +), whereas
+// co-movement does — so a rate hike correctly stays contractionary down the chain.
+function buildW(lensId = "nk") {
   const n = NODES.length;
   const W = Array.from({ length: n }, () => new Float64Array(n));
   for (const e of EDGES) {
-    const w = EDGE_W[`${e.from}->${e.to}`] ?? (e.tone === "mixed" ? 0.3 : 0.5);
-    W[NODE_IDX[e.to]][NODE_IDX[e.from]] += toneSign(e.tone) * w;
+    const base = EDGE_W[`${e.from}->${e.to}`] ?? (e.tone === "mixed" ? 0.3 : 0.5);
+    const w = base * edgeMultiplier(lensId, e.from, e.to);
+    W[NODE_IDX[e.to]][NODE_IDX[e.from]] += edgeCO(e) * w;
   }
   return W;
 }
-const BASE_W = buildW();
-const NZ = [];  // sparse nonzero coordinates + base weight
-for (let i = 0; i < NODES.length; i++)
-  for (let j = 0; j < NODES.length; j++)
-    if (BASE_W[i][j] !== 0) NZ.push([i, j, BASE_W[i][j]]);
+
+// Matrices + sparse nonzero patterns are built once per lens and cached.
+const W_CACHE = {};
+function getLensW(lensId = "nk") {
+  if (!W_CACHE[lensId]) {
+    const W = buildW(lensId);
+    const NZ = [];
+    for (let i = 0; i < NODES.length; i++)
+      for (let j = 0; j < NODES.length; j++)
+        if (W[i][j] !== 0) NZ.push([i, j, W[i][j]]);
+    W_CACHE[lensId] = { W, NZ };
+  }
+  return W_CACHE[lensId];
+}
 
 function neumann(W, s, K, damping) {
   const n = s.length;
@@ -312,16 +328,27 @@ function lagsFrom(originId) {
   return dist;
 }
 
+// A single deterministic run: the effect on `targetId` of a shock on `originId`,
+// under a given lens. Fast (no Monte-Carlo) — used to compare schools side by side.
+export function pointEstimate(originId, dir = 1, targetId = "gdp", lens = "nk") {
+  const oi = NODE_IDX[originId], ti = NODE_IDX[targetId];
+  if (oi == null || ti == null) return 0;
+  const s = new Float64Array(NODES.length); s[oi] = dir;
+  return neumann(getLensW(lens).W, s, 6, 0.9)[ti];
+}
+
 // Returns Map<id, { impulse, lo, hi, lagWeeks }>. `impulse` is the MEDIAN effect;
-// [lo, hi] is the 90% Monte-Carlo band; lagWeeks is when it's first felt.
-export function propagate(originId, dir = 1, K = 6, { draws = 160, noise = 0.22, damping = 0.9 } = {}) {
+// [lo, hi] is the 90% Monte-Carlo band; lagWeeks is when it's first felt. `lens`
+// picks a school of thought, re-weighting the channels (default = New Keynesian).
+export function propagate(originId, dir = 1, K = 6, { draws = 160, noise = 0.22, damping = 0.9, lens = "nk" } = {}) {
   const n = NODES.length;
   const oi = NODE_IDX[originId];
   if (oi == null) return new Map();
   const s = new Float64Array(n); s[oi] = dir;
 
+  const { W: BW, NZ } = getLensW(lens);
   const samples = Array.from({ length: n }, () => new Float64Array(draws));
-  const W = BASE_W.map((r) => Float64Array.from(r));   // zeros stay zero
+  const W = BW.map((r) => Float64Array.from(r));   // zeros stay zero
   for (let d = 0; d < draws; d++) {
     for (const [i, j, base] of NZ) W[i][j] = base * Math.exp(gaussian() * noise);  // lognormal jitter
     const x = neumann(W, s, K, damping);
@@ -439,14 +466,18 @@ export function valueDirection(originId, targetId, shockDir = 1) {
   return s;
 }
 
-// Read one impact the way a non-economist would: which way it moves, and whether
-// that's good or bad news. `uncertain` folds in the Monte-Carlo sign ambiguity.
-export function readImpact(originId, targetId, shockDir, uncertain = false) {
-  const dir = valueDirection(originId, targetId, shockDir);
-  const unclear = uncertain || dir === 0;
-  const good = NODE_GOOD[targetId];
-  const dirWord = dir > 0 ? "rises" : dir < 0 ? "falls" : "could move either way";
-  const sentiment = unclear || good == null ? null : ((dir > 0) === good ? "good" : "bad");
+// Read one impact the way a non-economist would, straight from its aggregate
+// effect (`impulse`, now the true signed value direction): which way it moves,
+// and whether that's good or bad news for THIS node. `uncertain` folds in the
+// Monte-Carlo sign ambiguity. This is the single source of truth for direction,
+// so every card on screen agrees.
+export function readDirection(nodeId, impulse, uncertain = false) {
+  const tiny = Math.abs(impulse) < 0.02;
+  const unclear = uncertain || tiny;
+  const rises = impulse > 0;
+  const good = NODE_GOOD[nodeId];
+  const dirWord = unclear ? "could go either way" : rises ? "rises" : "falls";
+  const sentiment = unclear || good == null ? null : (rises === good ? "good" : "bad");
   const color = unclear ? "#C6A15B" : sentiment === "good" ? "#7FB58A" : sentiment === "bad" ? "#D8735E" : "#8A8F88";
-  return { dir, unclear, dirWord, sentiment, color };
+  return { dir: unclear ? 0 : rises ? 1 : -1, unclear, dirWord, sentiment, color };
 }

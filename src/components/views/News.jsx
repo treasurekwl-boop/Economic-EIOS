@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Newspaper, ArrowRight, Radio, Share2, ChevronDown, Zap, TrendingUp, TrendingDown, ShieldAlert, Database, ExternalLink } from "lucide-react";
 import { NEWS_AS_OF, TONES, IMPLICATIONS_DISCLAIMER } from "../../config/news.js";
-import { propagate, nodeById, lagLabel, readImpact } from "../../config/graph.js";
+import { propagate, nodeById, lagLabel, readDirection } from "../../config/graph.js";
 import { fetchNews, fetchHeadlines } from "../../lib/dataApi.js";
 import { tint } from "../../config/palette.js";
 import Insight from "../ui/Insight.jsx";
@@ -218,7 +218,7 @@ function ImpactPanel({ origin, dir, tone, implications }) {
     .sort((a, b) => Math.abs(b.impulse) - Math.abs(a.impulse)).slice(0, 8);
   const maxImp = Math.max(...impacts.map((i) => Math.max(Math.abs(i.impulse), Math.abs(i.lo), Math.abs(i.hi))), 0.001);
   const gdp = map.get("gdp");
-  const gdpRead = gdp ? readImpact(origin, "gdp", dir, Math.sign(gdp.lo) !== Math.sign(gdp.hi)) : null;
+  const gdpRead = gdp ? readDirection("gdp", gdp.impulse, Math.sign(gdp.lo) !== Math.sign(gdp.hi)) : null;
   const impl = implications ?? [];
 
   return (
