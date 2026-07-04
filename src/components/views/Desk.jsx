@@ -3,13 +3,14 @@ import {
   Briefcase, Zap, NotebookPen, Trash2, TrendingUp, TrendingDown, Activity, Plus, Radio,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
-import { INSTRUMENTS, INSTRUMENT_TYPES, DESK_SHOCKS, DESK_NOTE } from "../../config/desk.js";
+import { INSTRUMENTS, INSTRUMENT_TYPES, DESK_SHOCKS, DESK_NOTE, TV_SYMBOL } from "../../config/desk.js";
 import { fetchInstruments } from "../../lib/dataApi.js";
 import { signals } from "../../lib/ta.js";
 import { propagate, nodeById } from "../../config/graph.js";
 import { usePersistedState } from "../../lib/usePersistedState.js";
 import { tint } from "../../config/palette.js";
 import QuantDesk from "./QuantDesk.jsx";
+import TradingViewChart from "../ui/TradingViewChart.jsx";
 
 const UP = "#7FB58A", DOWN = "#D8735E", FLAT = "#8A8F88";
 const instById = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i]));
@@ -66,6 +67,7 @@ export default function Desk({ onOpenGraph }) {
           )}
 
           <Watchlist data={data} />
+          <LiveChart />
           <ShockToPositions data={data} onOpenGraph={onOpenGraph} />
           <Journal data={data} />
 
@@ -161,6 +163,28 @@ function WatchCard({ inst, row }) {
           {sig.vol != null && <span style={{ color: "#6B7068" }}>vol {Math.round(sig.vol)}%</span>}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Live chart: real TradingView chart embedded for the selected instrument ──
+function LiveChart() {
+  const [instId, setInstId] = useState("usdzar");
+  return (
+    <div className="mb-5">
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-2">
+          <Activity className="h-3.5 w-3.5" /> Live chart · TradingView
+        </div>
+        <select value={instId} onChange={(e) => setInstId(e.target.value)}
+          className="rounded-md border px-2 py-1 text-[12px] text-ink" style={{ borderColor: "#262B27", background: "#12150F" }}>
+          {INSTRUMENTS.map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}
+        </select>
+      </div>
+      <TradingViewChart symbol={TV_SYMBOL[instId] ?? "FX_IDC:USDZAR"} />
+      <p className="mt-1.5 font-mono text-[9px]" style={{ color: "#565B54" }}>
+        Real TradingView data (real-time where your account/exchange allows, else delayed). Change the symbol on the chart if an exchange code differs on your plan. Display only — the app's models still use the EOD feed.
+      </p>
     </div>
   );
 }

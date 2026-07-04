@@ -31,6 +31,14 @@ export const INSTRUMENTS = [
   { id: "gfi",    sym: "GFI.JO",   label: "Gold Fields",    type: "equity", node: "gold",   invert: false, fmt: "ZAc", dp: 0 },
 ];
 
+// TradingView symbols for the embedded live charts (best-effort — the widget
+// lets you change the symbol if an exchange code differs on your plan).
+export const TV_SYMBOL = {
+  usdzar: "FX_IDC:USDZAR", eurzar: "FX_IDC:EURZAR", gbpzar: "FX_IDC:GBPZAR",
+  gold: "TVC:GOLD", platinum: "TVC:PLATINUM", brent: "TVC:UKOIL",
+  jse40: "JSE:J200", npn: "JSE:NPN", fsr: "JSE:FSR", agl: "JSE:AGL", sol: "JSE:SOL", gfi: "JSE:GFI",
+};
+
 export const INSTRUMENT_TYPES = {
   fx:        { label: "FX", color: "#6FBDB4" },
   commodity: { label: "Commodities", color: "#D8AF6A" },
