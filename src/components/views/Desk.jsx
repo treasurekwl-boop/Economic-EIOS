@@ -9,6 +9,7 @@ import { signals } from "../../lib/ta.js";
 import { propagate, nodeById } from "../../config/graph.js";
 import { usePersistedState } from "../../lib/usePersistedState.js";
 import { tint } from "../../config/palette.js";
+import QuantDesk from "./QuantDesk.jsx";
 
 const UP = "#7FB58A", DOWN = "#D8735E", FLAT = "#8A8F88";
 const instById = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i]));
@@ -22,6 +23,7 @@ const fmtPrice = (inst, v) => {
 };
 
 export default function Desk({ onOpenGraph }) {
+  const [tab, setTab] = useState("workbench");   // "workbench" | "quant"
   const [data, setData] = useState({});
   const [loaded, setLoaded] = useState(false);
   useEffect(() => { fetchInstruments().then((d) => { setData(d); setLoaded(true); }); }, []);
@@ -29,37 +31,49 @@ export default function Desk({ onOpenGraph }) {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 animate-fade-up">
-      <div className="mb-5">
+      <div className="mb-4">
         <div className="mb-1 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em]" style={{ color: "#6FBDB4" }}>
           <Briefcase className="h-3.5 w-3.5" /> Desk · Your analysis workbench
         </div>
         <h1 className="font-display text-[26px] font-semibold tracking-tight text-ink">Watch, model, journal</h1>
-        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-muted">
-          Your FX, JSE and commodity watchlist with signals; a shock engine that traces a macro move onto your positions;
-          and a trade journal. Analysis up to the decision — you place the trades yourself.
-        </p>
       </div>
 
-      {loaded && !hasFeed && (
-        <div className="mb-5 rounded-xl border p-4" style={{ borderColor: tint("#C6A15B", 0.35), background: tint("#C6A15B", 0.05) }}>
-          <div className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: "#C6A15B" }}>
-            <Radio className="h-3.5 w-3.5" /> Price feed not active yet
-          </div>
-          <p className="text-[12.5px] leading-relaxed text-muted">
-            Charts and signals need the watchlist feed. Run <span className="font-mono text-ink">supabase/instrument_series.sql</span> once
-            in Supabase, then trigger the <span className="font-mono text-ink">Live data</span> GitHub Action. The shock-to-position tool
-            and journal below work right now without it.
+      {/* Tab toggle */}
+      <div className="mb-5 flex gap-1.5">
+        {[["workbench", "Workbench"], ["quant", "Quant tools"]].map(([key, lbl]) => (
+          <button key={key} onClick={() => setTab(key)} className="rounded-lg border px-3.5 py-2 text-[12.5px] font-medium transition-all"
+            style={tab === key ? { background: tint("#6FBDB4", 0.14), borderColor: tint("#6FBDB4", 0.55), color: "#6FBDB4" } : { background: "rgba(19,22,20,0.6)", borderColor: "rgba(35,40,35,1)", color: "#8A8F88" }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {tab === "quant" ? (
+        <QuantDesk data={data} />
+      ) : (
+        <>
+          {loaded && !hasFeed && (
+            <div className="mb-5 rounded-xl border p-4" style={{ borderColor: tint("#C6A15B", 0.35), background: tint("#C6A15B", 0.05) }}>
+              <div className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: "#C6A15B" }}>
+                <Radio className="h-3.5 w-3.5" /> Price feed not active yet
+              </div>
+              <p className="text-[12.5px] leading-relaxed text-muted">
+                Charts and signals need the watchlist feed. Run <span className="font-mono text-ink">supabase/instrument_series.sql</span> once
+                in Supabase, then trigger the <span className="font-mono text-ink">Live data</span> GitHub Action. The shock-to-position tool
+                and journal below work right now without it.
+              </p>
+            </div>
+          )}
+
+          <Watchlist data={data} />
+          <ShockToPositions data={data} onOpenGraph={onOpenGraph} />
+          <Journal data={data} />
+
+          <p className="mt-6 border-t pt-4 font-mono text-[10px] leading-relaxed" style={{ borderColor: "#1E231F", color: "#565B54" }}>
+            {DESK_NOTE}
           </p>
-        </div>
+        </>
       )}
-
-      <Watchlist data={data} />
-      <ShockToPositions data={data} onOpenGraph={onOpenGraph} />
-      <Journal data={data} />
-
-      <p className="mt-6 border-t pt-4 font-mono text-[10px] leading-relaxed" style={{ borderColor: "#1E231F", color: "#565B54" }}>
-        {DESK_NOTE}
-      </p>
     </div>
   );
 }
