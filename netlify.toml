@@ -1,0 +1,12 @@
+# Netlify build config. Netlify auto-deploys this repo on every push to main.
+# The Supabase env vars (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) are set in
+# the Netlify dashboard → Site configuration → Environment variables (changing
+# them triggers a rebuild automatically). If unset, the app falls back to its
+# built-in data.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"

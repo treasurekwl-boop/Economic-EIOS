@@ -5,9 +5,9 @@ name: Deploy to GitHub Pages
 # Variables — not Secrets — are appropriate). If they're unset, the build still
 # succeeds and the app falls back to its built-in data.
 
+# Manual-only now — hosting moved to Netlify (reliable auto-deploy). Kept as a
+# fallback you can run by hand from the Actions tab if ever needed.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
