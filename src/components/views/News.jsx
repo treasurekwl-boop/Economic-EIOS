@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { Newspaper, ArrowRight, Radio, Share2, ChevronDown, Zap, TrendingUp, TrendingDown, ShieldAlert, Database, ExternalLink } from "lucide-react";
 import { NEWS_AS_OF, TONES, IMPLICATIONS_DISCLAIMER } from "../../config/news.js";
-import { propagate, nodeById, lagLabel } from "../../config/graph.js";
+import { propagate, nodeById, lagLabel, readImpact } from "../../config/graph.js";
 import { fetchNews, fetchHeadlines } from "../../lib/dataApi.js";
 import { tint } from "../../config/palette.js";
 import Insight from "../ui/Insight.jsx";
+import InfoTip from "../ui/InfoTip.jsx";
+import CascadeRows from "../ui/CascadeRows.jsx";
+import { TERMS } from "../../config/glossary.js";
 
 const UP = "#7FB58A", DOWN = "#D8735E";
 
@@ -211,38 +214,31 @@ function WireTab({ wire }) {
 function ImpactPanel({ origin, dir, tone, implications }) {
   const map = propagate(origin, dir);
   const impacts = [...map.entries()].filter(([id]) => id !== origin)
-    .map(([id, v]) => ({ id, ...v })).sort((a, b) => Math.abs(b.impulse) - Math.abs(a.impulse)).slice(0, 8);
-  const maxImp = Math.max(...impacts.map((i) => Math.abs(i.impulse)), 0.001);
+    .map(([id, v]) => ({ id, ...v, uncertain: Math.sign(v.lo) !== Math.sign(v.hi) }))
+    .sort((a, b) => Math.abs(b.impulse) - Math.abs(a.impulse)).slice(0, 8);
+  const maxImp = Math.max(...impacts.map((i) => Math.max(Math.abs(i.impulse), Math.abs(i.lo), Math.abs(i.hi))), 0.001);
   const gdp = map.get("gdp");
+  const gdpRead = gdp ? readImpact(origin, "gdp", dir, Math.sign(gdp.lo) !== Math.sign(gdp.hi)) : null;
   const impl = implications ?? [];
 
   return (
     <div className="mt-3 space-y-3 rounded-lg border p-3.5" style={{ borderColor: "#1E231F", background: "rgba(12,14,13,0.5)" }}>
       <div>
-        <div className="mb-2 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.1em]" style={{ color: "#A99BF5" }}>
-          <Zap className="h-3 w-3" /> Exactly what follows — through the economy
+        <div className="mb-1 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.1em]" style={{ color: "#A99BF5" }}>
+          <Zap className="h-3 w-3" /> What this sets off — through the economy
         </div>
-        <div className="space-y-1">
-          {impacts.map((im) => {
-            const n = nodeById(im.id); const up = im.impulse > 0; const c = up ? UP : DOWN;
-            const width = Math.max(5, (Math.abs(im.impulse) / maxImp) * 100);
-            return (
-              <div key={im.id} className="flex items-center gap-2.5">
-                <span className="w-3 shrink-0 text-center font-mono text-[11px]" style={{ color: c }}>{up ? "▲" : "▼"}</span>
-                <span className="w-[120px] shrink-0 truncate text-[12px]" style={{ color: "#ECEAE3" }}>{n?.label ?? im.id}</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(35,40,35,0.7)" }}>
-                  <div className="h-full rounded-full" style={{ width: `${width}%`, background: `linear-gradient(90deg, ${tint(c, 0.5)}, ${c})` }} />
-                </div>
-                <span className="w-[86px] shrink-0 text-right font-mono text-[9px]" style={{ color: "#6B7068" }}>{lagLabel(im.lagWeeks)}</span>
-              </div>
-            );
-          })}
-        </div>
-        {gdp && (
-          <div className="mt-2 font-mono text-[10.5px]" style={{ color: "#8A8F88" }}>
-            Net on GDP: <span style={{ color: gdp.impulse > 0 ? UP : DOWN }}>{gdp.impulse > 0 ? "▲ supportive" : "▼ contractionary"}</span>
-            <span style={{ color: "#565B54" }}> · felt {lagLabel(gdp.lagWeeks)}</span>
-          </div>
+        <p className="mb-2 font-mono text-[9px]" style={{ color: "#565B54" }}>Tap any row to see what it is and why it moves.</p>
+        <CascadeRows origin={origin} shockDir={dir} impacts={impacts} maxImp={maxImp} compact />
+        {gdp && gdpRead && (
+          <p className="mt-2.5 text-[11.5px] leading-relaxed" style={{ color: "#8A8F88" }}>
+            For the whole economy (<InfoTip concept={TERMS.gdp} color="#6FBDB4">GDP</InfoTip>), the bottom line is{" "}
+            {gdpRead.unclear
+              ? <span style={{ color: gdpRead.color }}>it could go either way</span>
+              : <><span style={{ color: gdpRead.color }}>GDP {gdpRead.dirWord}</span> — {gdpRead.sentiment === "good"
+                  ? <span style={{ color: UP }}>the economy grows (<InfoTip concept={TERMS.supportive} color={UP}>supportive</InfoTip>)</span>
+                  : <span style={{ color: DOWN }}>the economy slows (<InfoTip concept={TERMS.contractionary} color={DOWN}>contractionary</InfoTip>)</span>}</>}
+            , felt {lagLabel(gdp.lagWeeks)}.
+          </p>
         )}
       </div>
 

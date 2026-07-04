@@ -4,10 +4,13 @@ import { useEngine } from "../../context/EngineContext.jsx";
 import { useScenario } from "../../context/ScenarioContext.jsx";
 import { LATEST } from "../../config/model.js";
 import {
-  NODES, EDGES, NODE_TYPES, driversOf, effectsOf, nodeById, tracePath, propagate, lagLabel,
+  NODES, EDGES, NODE_TYPES, driversOf, effectsOf, nodeById, tracePath, propagate, lagLabel, readImpact,
 } from "../../config/graph.js";
 import { tint } from "../../config/palette.js";
 import Insight from "../ui/Insight.jsx";
+import InfoTip from "../ui/InfoTip.jsx";
+import CascadeRows from "../ui/CascadeRows.jsx";
+import { TERMS } from "../../config/glossary.js";
 
 const TONE = { support: "#7FB58A", pressure: "#D8735E", mixed: "#C6A15B" };
 const UP = "#7FB58A", DOWN = "#D8735E";
@@ -258,72 +261,70 @@ function SimulateView({ focus, shockDir, valueOf, go }) {
   const maxImp = Math.max(...impacts.map((i) => Math.max(Math.abs(i.impulse), Math.abs(i.lo), Math.abs(i.hi))), 0.001);
   const gdp = prop.get("gdp");
 
-  const verb = (v) => (v > 0 ? "lifts" : "drags");
   const top3 = impacts.slice(0, 3);
-  const narrative = top3.length
-    ? `A shock ${shockDir > 0 ? "upward" : "downward"} in ${focus.label} ${top3.map((t) => `${verb(t.impulse)} ${nodeById(t.id).label.toLowerCase()}`).join(", ")}`
-      + (gdp ? ` — net ${gdp.impulse > 0 ? "positive" : "negative"} for GDP, ${lagLabel(gdp.lagWeeks)}.` : ".")
-    : `${focus.label} has no modelled downstream effects — it's a leaf of the graph.`;
+  const dirWord = shockDir > 0 ? "up" : "down";
+  const gdpRead = gdp ? readImpact(focus.id, "gdp", shockDir, Math.sign(gdp.lo) !== Math.sign(gdp.hi)) : null;
 
   return (
     <>
+      {/* Plain-English story of what just happened */}
       <div className="mt-4 rounded-2xl border p-5" style={{ borderColor: tint("#A99BF5", 0.25), background: "linear-gradient(155deg, rgba(169,155,245,0.06), #101311 60%)" }}>
         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#A99BF5" }}>
-          <Zap className="h-3.5 w-3.5" /> The cascade
+          <Zap className="h-3.5 w-3.5" /> What happens next
         </div>
-        <p className="mt-2.5 font-display text-[19px] font-normal leading-[1.45] text-ink">{narrative}</p>
-        {gdp && (
-          <div className="mt-3 flex items-center gap-2 font-mono text-[11px]">
-            <span style={{ color: "#8A8F88" }}>Net effect on GDP:</span>
-            <span style={{ color: gdp.impulse > 0 ? UP : DOWN }}>{gdp.impulse > 0 ? "▲ supportive" : "▼ contractionary"}</span>
-            <span style={{ color: "#565B54" }}>· felt {lagLabel(gdp.lagWeeks)}</span>
-          </div>
+        {top3.length ? (
+          <>
+            <p className="mt-2.5 font-display text-[19px] font-normal leading-[1.5] text-ink">
+              You pushed <span style={{ color: "#ECEAE3" }}>{focus.label} {dirWord}</span>. In the economy nothing moves on its own — one change sets off a{" "}
+              <InfoTip concept={TERMS.cascade} color="#A99BF5">chain reaction</InfoTip>. The parts that feel it most:
+            </p>
+            <ul className="mt-2.5 space-y-1.5">
+              {top3.map((im) => {
+                const r = readImpact(focus.id, im.id, shockDir, im.uncertain);
+                return (
+                  <li key={im.id} className="flex items-baseline gap-2 text-[15px] leading-relaxed" style={{ color: "#C9C6BD" }}>
+                    <span className="mt-1 h-2 w-2 shrink-0 self-center rounded-full" style={{ background: r.color }} />
+                    <span>
+                      <span style={{ color: "#ECEAE3" }}>{nodeById(im.id).label}</span>{" "}
+                      <span style={{ color: r.color }}>{r.dirWord}</span>
+                      {r.sentiment && <span style={{ color: r.color }}> · {r.sentiment === "good" ? "good news" : "bad news"}</span>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : (
+          <p className="mt-2.5 font-display text-[19px] font-normal leading-[1.45] text-ink">
+            {focus.label} is the end of a chain — nothing else in the model depends on it.
+          </p>
+        )}
+        {gdp && gdpRead && (
+          <p className="mt-3.5 border-t pt-3 text-[14px] leading-relaxed" style={{ borderColor: "#232823", color: "#9A978E" }}>
+            For the whole economy — <InfoTip concept={TERMS.gdp} color="#6FBDB4">GDP</InfoTip>, everything the country makes — the bottom line is{" "}
+            {gdpRead.unclear
+              ? <span style={{ color: gdpRead.color }}>it could go either way</span>
+              : <><span style={{ color: gdpRead.color }}>GDP {gdpRead.dirWord}</span> — {gdpRead.sentiment === "good"
+                  ? <span style={{ color: UP }}>the economy grows (<InfoTip concept={TERMS.supportive} color={UP}>supportive</InfoTip>)</span>
+                  : <span style={{ color: DOWN }}>the economy slows (<InfoTip concept={TERMS.contractionary} color={DOWN}>contractionary</InfoTip>)</span>}</>}
+            , and you'd start to see it <span style={{ color: "#C9C6BD" }}>{lagLabel(gdp.lagWeeks)}</span>.
+          </p>
         )}
       </div>
 
+      {/* The full list — every row explains itself when tapped */}
       <div className="mt-4 rounded-2xl border p-4" style={{ borderColor: "#232823", background: "linear-gradient(160deg, #131614, #101311)" }}>
-        <div className="mb-3 flex items-center justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-2">Ranked impact · {impacts.length} nodes reached</span>
-          <span className="font-mono text-[10px]" style={{ color: "#565B54" }}>median · 90% range</span>
+        <div className="mb-1 flex items-center justify-between">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-2">Everything the shock touches · {impacts.length} parts</span>
+          <span className="font-mono text-[10px]" style={{ color: "#565B54" }}>
+            size · <InfoTip concept={TERMS.range} color="#8A8F88" align="right">how sure</InfoTip>
+          </span>
         </div>
-        <div className="space-y-1.5">
-          {impacts.map((im) => {
-            const n = nodeById(im.id); const meta = NODE_TYPES[n.type];
-            const up = im.impulse > 0; const c = up ? UP : DOWN;
-            const width = Math.max(3, (Math.abs(im.impulse) / maxImp) * 100);
-            // Faint band spans the 5th→95th percentile of the Monte-Carlo draws.
-            const bandLo = (Math.min(Math.abs(im.lo), Math.abs(im.hi)) / maxImp) * 100;
-            const bandHi = (Math.max(Math.abs(im.lo), Math.abs(im.hi)) / maxImp) * 100;
-            return (
-              <button key={im.id} onClick={() => go(im.id)} className="flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors"
-                style={{ borderColor: "#1E231F", background: "rgba(12,14,13,0.4)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = tint(meta.color, 0.4))}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#1E231F")}>
-                <span className="w-4 shrink-0 text-center font-mono text-[13px]" style={{ color: im.uncertain ? "#8A8F88" : c }}>{im.uncertain ? "◇" : up ? "▲" : "▼"}</span>
-                <div className="w-[130px] shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: meta.color }} />
-                    <span className="truncate text-[13px]" style={{ color: "#ECEAE3" }}>{n.label}</span>
-                  </div>
-                  {im.uncertain
-                    ? <span className="ml-3 font-mono text-[9px]" style={{ color: "#B79154" }}>direction uncertain</span>
-                    : valueOf(n) && <span className="ml-3 font-mono text-[9px]" style={{ color: "#6B7068" }}>now {valueOf(n)}</span>}
-                </div>
-                <div className="relative h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(35,40,35,0.7)" }}>
-                  {/* 90% Monte-Carlo band */}
-                  <div className="absolute inset-y-0 rounded-full" style={{ left: `${bandLo}%`, width: `${Math.max(1, bandHi - bandLo)}%`, background: tint(c, 0.22) }} />
-                  {/* median */}
-                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${width}%`, background: `linear-gradient(90deg, ${tint(c, 0.5)}, ${c})`, boxShadow: `0 0 8px ${tint(c, 0.4)}` }} />
-                </div>
-                <span className="w-[92px] shrink-0 text-right font-mono text-[9.5px]" style={{ color: "#6B7068" }}>{lagLabel(im.lagWeeks)}</span>
-              </button>
-            );
-          })}
-          {impacts.length === 0 && <div className="py-4 text-center font-mono text-[11px]" style={{ color: "#565B54" }}>no downstream effects — this is a leaf node</div>}
-        </div>
+        <p className="mb-3 font-mono text-[9.5px]" style={{ color: "#565B54" }}>Tap any row to see what it is and exactly why it moves.</p>
+        <CascadeRows origin={focus.id} shockDir={shockDir} impacts={impacts} maxImp={maxImp} valueOf={valueOf} go={go} />
         {impacts.length > 0 && (
           <p className="mt-3 border-t pt-2.5 font-mono text-[9px] leading-relaxed" style={{ borderColor: "#1E231F", color: "#565B54" }}>
-            Linear input-output model · 160 Monte-Carlo draws · solid bar = median effect, faint band = 90% range. ◇ marks nodes whose direction is uncertain (the band straddles zero). Modelled estimates, not forecasts.
+            How this works: the model treats the economy as hundreds of linked cause-and-effect steps and follows the shock through all of them. It re-runs the scenario 160 times with slightly different assumptions, so the solid bar is the middle outcome and the faint band is the range 9 of 10 runs fell in. These are modelled estimates, not predictions.
           </p>
         )}
       </div>

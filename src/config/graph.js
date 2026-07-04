@@ -365,3 +365,88 @@ export function tracePath(startId, maxHops = 5) {
   }
   return path;
 }
+
+// The clearest single reason `targetId` moves when `originId` is shocked: the
+// downstream path with the strongest total pass-through, returned as a list of
+// edges (each carrying a plain-English `mech`). This is what lets the app *say*
+// why a node was hit, step by step, instead of just drawing a bar. [] if none.
+export function explainChain(originId, targetId, maxHops = 5) {
+  const wOf = (e) => EDGE_W[`${e.from}->${e.to}`] ?? (e.tone === "mixed" ? 0.3 : 0.5);
+  let best = null, bestScore = -Infinity;
+  const dfs = (cur, edges, score, seen) => {
+    if (cur === targetId) { if (score > bestScore) { bestScore = score; best = edges.slice(); } return; }
+    if (edges.length >= maxHops) return;
+    for (const e of effectsOf(cur)) {
+      if (seen.has(e.to)) continue;
+      seen.add(e.to); edges.push(e);
+      dfs(e.to, edges, score + Math.log(wOf(e)), seen);
+      edges.pop(); seen.delete(e.to);
+    }
+  };
+  dfs(originId, [], 0, new Set([originId]));
+  return best ?? [];
+}
+
+// Does `to` RISE (+1) or FALL (−1) when `from` rises? The true mechanical
+// co-movement, read from each mechanism. This is what the good/bad `tone` field
+// cannot give us: `tone` says whether a link is helpful or harmful, not which
+// way the number moves — so "a stronger rand" correctly makes fuel FALL here,
+// even though that edge's tone is "pressure". For constraint nodes (energy,
+// crime…) "up" means the constraint WORSENS.
+const CO = {
+  "oil->fuel": 1, "oil->rand": -1, "fed->rand": -1, "fed->repo": 1,
+  "world->X": 1, "world->mining": 1, "world->gold": 0,
+  "rand->fuel": -1, "rand->cpi": -1, "rand->X": -1, "rand->infexp": -1,
+  "fuel->cpi": 1, "fuel->food": 1, "fuel->C": -1, "food->cpi": 1, "food->C": -1,
+  "cpi->infexp": 1, "cpi->repo": 1, "cpi->C": -1, "core->repo": 1, "infexp->repo": 1, "infexp->wages": 1,
+  "repo->realrate": 1, "repo->credit": -1, "repo->rand": 1, "realrate->I": -1, "realrate->C": -1,
+  "credit->C": 1, "credit->I": 1,
+  "C->gdp": 1, "I->gdp": 1, "I->potential": 1, "I->constr": 1, "I->jobs": 1,
+  "G->gdp": 1, "X->gdp": 1, "M->gdp": -1, "potential->gdp": 1, "potential->gap": -1,
+  "gdp->gap": 1, "gdp->jobs": 1, "gdp->households": 1, "gdp->tax": 1, "gdp->debt": -1,
+  "gap->cpi": 1, "gap->core": 1,
+  "jobs->unemp": -1, "jobs->households": 1, "unemp->C": -1, "unemp->G": 1, "unemp->crime": 1,
+  "households->C": 1, "households->savings": 1, "savings->I": 1, "wages->C": 1, "wages->manuf": -1,
+  "mining->X": 1, "mining->gdp": 1, "manuf->gdp": 1, "manuf->jobs": 1,
+  "agri->food": -1, "agri->X": 1, "finance->gdp": 1, "finance->I": 1, "constr->jobs": 1,
+  "energy->manuf": -1, "energy->I": -1, "energy->gdp": -1, "energy->potential": -1,
+  "logistics->X": -1, "logistics->mining": -1, "crime->I": -1, "crime->potential": -1,
+  "water->I": -1, "skills->potential": -1, "state->I": -1, "state->water": 1,
+  "gold->X": 1, "gold->rand": 1, "platinum->X": 1, "platinum->rand": 1, "maize->food": 1,
+  "debt->debtsvc": 1, "debt->rand": -1, "debtsvc->G": -1, "debtsvc->I": -1, "tax->G": 1, "tax->debt": -1,
+};
+const edgeCO = (e) => CO[`${e.from}->${e.to}`] ?? 0;  // 0 = unknown ⇒ degrade to "unclear"
+
+// Is a RISE in this node good news for the average person? true / false / null.
+// null = neutral (a rate, the currency, a commodity) — no simple good/bad.
+export const NODE_GOOD = {
+  gdp: true, jobs: true, C: true, I: true, G: true, X: true, households: true,
+  savings: true, wages: true, tax: true, potential: true, credit: true,
+  mining: true, manuf: true, agri: true, finance: true, constr: true,
+  cpi: false, fuel: false, food: false, core: false, infexp: false, unemp: false,
+  debt: false, debtsvc: false, crime: false, energy: false, logistics: false,
+  water: false, skills: false, state: false,
+};
+
+// The value direction of the strongest channel from origin → target, for a shock
+// of sign `shockDir` on the origin. +1 rises, −1 falls, 0 unclear.
+export function valueDirection(originId, targetId, shockDir = 1) {
+  if (originId === targetId) return shockDir > 0 ? 1 : -1;
+  const chain = explainChain(originId, targetId);
+  if (!chain.length) return 0;
+  let s = shockDir > 0 ? 1 : -1;
+  for (const e of chain) s *= edgeCO(e);
+  return s;
+}
+
+// Read one impact the way a non-economist would: which way it moves, and whether
+// that's good or bad news. `uncertain` folds in the Monte-Carlo sign ambiguity.
+export function readImpact(originId, targetId, shockDir, uncertain = false) {
+  const dir = valueDirection(originId, targetId, shockDir);
+  const unclear = uncertain || dir === 0;
+  const good = NODE_GOOD[targetId];
+  const dirWord = dir > 0 ? "rises" : dir < 0 ? "falls" : "could move either way";
+  const sentiment = unclear || good == null ? null : ((dir > 0) === good ? "good" : "bad");
+  const color = unclear ? "#C6A15B" : sentiment === "good" ? "#7FB58A" : sentiment === "bad" ? "#D8735E" : "#8A8F88";
+  return { dir, unclear, dirWord, sentiment, color };
+}
