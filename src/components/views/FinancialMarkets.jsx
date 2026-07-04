@@ -1,8 +1,9 @@
 import { useState } from "react";
 import {
-  Landmark, Banknote, TrendingUp, Percent, Gem, Bitcoin, ChevronDown, Share2, ArrowRight, Repeat,
+  Landmark, Banknote, TrendingUp, Percent, Gem, Bitcoin, ChevronDown, Share2, ArrowRight, Repeat, Grid3x3, Boxes,
 } from "lucide-react";
 import { FIN_MARKETS, FIN_MARKETS_NOTE } from "../../config/finmarkets.js";
+import { EIOS_MARKETS, CMP_COLUMNS, EIOS_NOTE } from "../../config/eios.js";
 import { nodeById } from "../../config/graph.js";
 import { tint } from "../../config/palette.js";
 
@@ -79,6 +80,116 @@ export default function FinancialMarkets({ onOpenGraph }) {
       <p className="mt-5 border-t pt-4 font-mono text-[10px] leading-relaxed" style={{ borderColor: "#1E231F", color: "#565B54" }}>
         {FIN_MARKETS_NOTE}
       </p>
+
+      <ComparisonMatrix />
+      <Blueprint />
+
+      <p className="mt-5 border-t pt-4 font-mono text-[10px] leading-relaxed" style={{ borderColor: "#1E231F", color: "#565B54" }}>
+        {EIOS_NOTE}
+      </p>
+    </div>
+  );
+}
+
+// The brief's cross-market comparison — all ten markets at a glance.
+function ComparisonMatrix() {
+  return (
+    <div className="mt-9">
+      <div className="mb-2 flex items-center gap-2">
+        <Grid3x3 className="h-4 w-4" style={{ color: "#6FBDB4" }} />
+        <h2 className="font-display text-[18px] font-semibold text-ink">Every market at a glance</h2>
+      </div>
+      <p className="mb-3 max-w-2xl text-[12.5px] leading-relaxed text-muted-2">
+        The cross-market comparison the brief specifies — how the ten market types differ on the axes that decide how you model
+        and risk-manage them.
+      </p>
+      <div className="no-scrollbar overflow-x-auto rounded-xl border" style={{ borderColor: "#232823" }}>
+        <table className="w-full border-collapse text-[11.5px]">
+          <thead>
+            <tr style={{ background: "rgba(111,189,180,0.06)" }}>
+              <th className="sticky left-0 px-3 py-2 text-left font-mono text-[9px] uppercase tracking-wider" style={{ color: "#6FBDB4", background: "#12150F" }}>Market</th>
+              {CMP_COLUMNS.map((c) => (
+                <th key={c.k} className="whitespace-nowrap px-3 py-2 text-left font-mono text-[9px] uppercase tracking-wider" style={{ color: "#6B7068" }}>{c.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {EIOS_MARKETS.map((m, i) => (
+              <tr key={m.id} style={{ background: i % 2 ? "rgba(19,22,20,0.4)" : "transparent" }}>
+                <th className="sticky left-0 whitespace-nowrap px-3 py-2 text-left text-[12px] font-medium text-ink" style={{ background: i % 2 ? "#111412" : "#101311" }}>{m.name}</th>
+                {CMP_COLUMNS.map((c) => (
+                  <td key={c.k} className="px-3 py-2 align-top" style={{ color: "#9A978E", minWidth: 118 }}>{m.cmp[c.k]}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Per-market structure (overview matrix) + EIOS modelling blueprint.
+function Blueprint() {
+  const [open, setOpen] = useState(null);
+  return (
+    <div className="mt-8">
+      <div className="mb-2 flex items-center gap-2">
+        <Boxes className="h-4 w-4" style={{ color: "#C6A15B" }} />
+        <h2 className="font-display text-[18px] font-semibold text-ink">Market structure &amp; modelling blueprint</h2>
+      </div>
+      <p className="mb-3 max-w-2xl text-[12.5px] leading-relaxed text-muted-2">
+        For each market: how it's structured and who's in it, then the brief's modelling blueprint — the models, state variables,
+        data, stress design and model-risk controls a real EIOS would use.
+      </p>
+      <div className="space-y-2">
+        {EIOS_MARKETS.map((m) => {
+          const on = open === m.id;
+          return (
+            <div key={m.id} className="overflow-hidden rounded-xl border" style={{ borderColor: on ? tint("#C6A15B", 0.4) : "#232823", background: "linear-gradient(150deg, #131614, #101311)" }}>
+              <button onClick={() => setOpen(on ? null : m.id)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "#C6A15B" }} />
+                <div className="min-w-0 flex-1">
+                  <span className="text-[14px] font-medium text-ink">{m.name}</span>
+                  {!on && <span className="ml-2 hidden truncate text-[11.5px] text-muted-2 sm:inline">{m.summary}</span>}
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 transition-transform" style={{ color: "#565B54", transform: on ? "rotate(180deg)" : "none" }} />
+              </button>
+              {on && (
+                <div className="border-t px-4 pb-3.5 pt-3" style={{ borderColor: "#1E231F", background: "rgba(8,10,9,0.5)" }}>
+                  <p className="mb-2.5 text-[12.5px] leading-relaxed" style={{ color: "#C9C6BD" }}>{m.summary}</p>
+                  <dl className="space-y-1.5 text-[12px]">
+                    <BRow label="Structure" value={m.structure} color="#6FBDB4" />
+                    <BRow label="Liquidity" value={m.liquidity} color="#6FBDB4" />
+                    <BRow label="Participants" value={m.participants} color="#6FBDB4" />
+                    <BRow label="Linkages" value={m.linkages} color="#6FBDB4" />
+                  </dl>
+                  <div className="mt-3 rounded-lg border p-3" style={{ borderColor: "#1E231F", background: "rgba(198,161,91,0.04)" }}>
+                    <div className="mb-1.5 font-mono text-[9px] uppercase tracking-wider" style={{ color: "#C6A15B" }}>EIOS modelling blueprint</div>
+                    <dl className="space-y-1.5 text-[12px]">
+                      <BRow label="Models" value={m.bp.models} color="#C6A15B" />
+                      <BRow label="State vars" value={m.bp.state} color="#C6A15B" />
+                      <BRow label="Process" value={m.bp.process} color="#C6A15B" />
+                      <BRow label="Data / horizon" value={m.bp.data} color="#C6A15B" />
+                      <BRow label="Stress design" value={m.bp.stress} color="#D8735E" />
+                      <BRow label="Model-risk controls" value={m.bp.controls} color="#7FB58A" />
+                    </dl>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BRow({ label, value, color }) {
+  return (
+    <div className="flex gap-2.5">
+      <dt className="w-[112px] shrink-0 font-mono text-[9px] uppercase tracking-wider" style={{ color }}>{label}</dt>
+      <dd className="flex-1 leading-relaxed" style={{ color: "#C9C6BD" }}>{value}</dd>
     </div>
   );
 }
