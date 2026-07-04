@@ -15,11 +15,12 @@ export default function News({ onOpenGraph }) {
   const [source, setSource] = useState("builtin");
   const [loading, setLoading] = useState(true);
   const [wire, setWire] = useState([]);          // live headlines (free 30-min feed)
+  const [tab, setTab] = useState("analysis");    // "analysis" | "wire"
 
   useEffect(() => {
     let alive = true;
     fetchNews().then((r) => { if (alive) { setItems(r.items); setSource(r.source); setLoading(false); } });
-    fetchHeadlines(12).then((h) => { if (alive) setWire(h); });
+    fetchHeadlines(24).then((h) => { if (alive) setWire(h); });
     return () => { alive = false; };
   }, []);
 
@@ -46,54 +47,40 @@ export default function News({ onOpenGraph }) {
         </p>
       </div>
 
-      <Insight color="#4FB8F0" label="Read news like an analyst" icon={Radio}>
-        Amateurs read the event; analysts read the channel. Every story below fires a real shock through the economic brain —
-        you see precisely which indicators move, by how much, and when.
-      </Insight>
-
-      {/* Live wire — free headlines feed, auto-updated every 30 min */}
-      {wire.length > 0 && (
-        <div className="mt-5 rounded-xl border p-4" style={{ borderColor: tint("#4FB8F0", 0.3), background: "linear-gradient(160deg, #131614, #101311)" }}>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="dot-live" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#7FB58A" }}>Live wire</span>
-            <span className="font-mono text-[9px]" style={{ color: "#565B54" }}>· auto-updates every 30 min · headlines only, not analysed</span>
-          </div>
-          <div className="space-y-0.5">
-            {wire.map((h, i) => (
-              <a key={i} href={h.link} target="_blank" rel="noreferrer"
-                className="group flex items-start gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-white/[0.02]">
-                <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full" style={{ background: "#4FB8F0" }} />
-                <span className="min-w-0 flex-1">
-                  <span className="text-[12.5px] text-ink group-hover:underline">{h.title}</span>
-                  <span className="ml-2 whitespace-nowrap font-mono text-[9.5px]" style={{ color: "#565B54" }}>{h.source} · {ago(h.published_at)}</span>
-                </span>
-                <ExternalLink className="mt-1 h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-60" style={{ color: "#4FB8F0" }} />
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tone filter */}
-      <div className="mt-5 flex flex-wrap gap-2">
-        <button onClick={() => setFilter("all")} className="rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all"
-          style={filter === "all" ? { background: "rgba(236,234,227,0.1)", borderColor: "rgba(236,234,227,0.4)", color: "#ECEAE3" } : { background: "rgba(19,22,20,0.6)", borderColor: "rgba(35,40,35,1)", color: "#8A8F88" }}>
-          All ({items.length})
-        </button>
-        {Object.entries(TONES).map(([key, t]) => {
-          const n = items.filter((it) => it.story.tone === key).length;
-          const on = filter === key;
-          return (
-            <button key={key} onClick={() => setFilter(on ? "all" : key)} className="rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all"
-              style={on ? { background: tint(t.color, 0.15), borderColor: tint(t.color, 0.6), color: t.color } : { background: "rgba(19,22,20,0.6)", borderColor: "rgba(35,40,35,1)", color: "#8A8F88" }}>
-              {t.label}s ({n})
-            </button>
-          );
-        })}
+      {/* Tabs — deep analysis vs the fast live wire */}
+      <div className="flex gap-1 border-b" style={{ borderColor: "#1A1F1C" }}>
+        <TabButton label="Analysis" count={items.length} active={tab === "analysis"} onClick={() => setTab("analysis")} color="#4FB8F0" />
+        <TabButton label="Live wire" count={wire.length} active={tab === "wire"} onClick={() => setTab("wire")} color="#7FB58A" live />
       </div>
 
-      {loading && <div className="mt-6 text-center font-mono text-[11px]" style={{ color: "#565B54" }}>loading feed…</div>}
+      {tab === "wire" && <WireTab wire={wire} />}
+
+      {tab === "analysis" && (<>
+        <div className="mt-4">
+          <Insight color="#4FB8F0" label="Read news like an analyst" icon={Radio}>
+            Amateurs read the event; analysts read the channel. Every story fires a real shock through the economic brain — you see precisely which indicators move, by how much, and when.
+          </Insight>
+        </div>
+
+        {/* Tone filter */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button onClick={() => setFilter("all")} className="rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all"
+            style={filter === "all" ? { background: "rgba(236,234,227,0.1)", borderColor: "rgba(236,234,227,0.4)", color: "#ECEAE3" } : { background: "rgba(19,22,20,0.6)", borderColor: "rgba(35,40,35,1)", color: "#8A8F88" }}>
+            All ({items.length})
+          </button>
+          {Object.entries(TONES).map(([key, t]) => {
+            const n = items.filter((it) => it.story.tone === key).length;
+            const on = filter === key;
+            return (
+              <button key={key} onClick={() => setFilter(on ? "all" : key)} className="rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all"
+                style={on ? { background: tint(t.color, 0.15), borderColor: tint(t.color, 0.6), color: t.color } : { background: "rgba(19,22,20,0.6)", borderColor: "rgba(35,40,35,1)", color: "#8A8F88" }}>
+                {t.label}s ({n})
+              </button>
+            );
+          })}
+        </div>
+
+        {loading && <div className="mt-6 text-center font-mono text-[11px]" style={{ color: "#565B54" }}>loading feed…</div>}
 
       {/* Stories */}
       <div className="mt-4 space-y-3">
@@ -153,6 +140,7 @@ export default function News({ onOpenGraph }) {
           );
         })}
       </div>
+      </>)}
 
       <footer className="mt-7 border-t border-line/60 pt-5 font-mono text-[11px] leading-relaxed text-muted-2">
         News desk · {live ? "served live from Supabase" : `built-in feed, curated ${NEWS_AS_OF}`}. Cascades are propagated
@@ -169,6 +157,55 @@ function ago(iso) {
   if (s < 3600) return `${Math.round(s / 60)}m ago`;
   if (s < 86400) return `${Math.round(s / 3600)}h ago`;
   return `${Math.round(s / 86400)}d ago`;
+}
+
+function TabButton({ label, count, active, onClick, color, live }) {
+  return (
+    <button onClick={onClick} className="relative flex items-center gap-1.5 px-3.5 py-2.5 font-mono text-[11px] uppercase tracking-[0.08em] transition-colors"
+      style={{ color: active ? "#F3F1EA" : "#6B7068" }}>
+      {live && (active ? <span className="dot-live" /> : <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#3E433C" }} />)}
+      {label}
+      <span className="rounded-full px-1.5 font-mono text-[9px]" style={{ background: tint(active ? color : "#565B54", 0.15), color: active ? color : "#6B7068" }}>{count}</span>
+      {active && <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-full" style={{ background: color, boxShadow: `0 0 8px ${tint(color, 0.6)}` }} />}
+    </button>
+  );
+}
+
+function WireTab({ wire }) {
+  if (!wire.length) {
+    return (
+      <div className="mt-6 rounded-xl border border-dashed p-6 text-center" style={{ borderColor: "#232823", background: "rgba(19,22,20,0.4)" }}>
+        <Radio className="mx-auto h-5 w-5" style={{ color: "#565B54" }} />
+        <p className="mt-2 font-mono text-[11px]" style={{ color: "#565B54" }}>The live wire is warming up — fresh headlines land within 30 minutes.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(79,184,240,0.06)", border: "1px solid rgba(79,184,240,0.2)" }}>
+        <span className="dot-live" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#7FB58A" }}>Live wire</span>
+        <span className="font-mono text-[10px]" style={{ color: "#8A8F88" }}>{wire.length} headlines · auto-updates every 30 min</span>
+        <span className="ml-auto font-mono text-[9px]" style={{ color: "#565B54" }}>newest {ago(wire[0]?.published_at)} · Google News</span>
+      </div>
+      <div className="overflow-hidden rounded-xl border" style={{ borderColor: "#232823", background: "linear-gradient(160deg, #131614, #101311)" }}>
+        {wire.map((h, i) => (
+          <a key={i} href={h.link} target="_blank" rel="noreferrer"
+            className="group flex items-start gap-3 border-b px-4 py-3 transition-colors last:border-0 hover:bg-white/[0.02]" style={{ borderColor: "#1A1F1C" }}>
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "#4FB8F0" }} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[13.5px] leading-snug text-ink group-hover:underline">{h.title}</div>
+              <div className="mt-0.5 font-mono text-[10px]" style={{ color: "#565B54" }}>{h.source} · {ago(h.published_at)}</div>
+            </div>
+            <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-60" style={{ color: "#4FB8F0" }} />
+          </a>
+        ))}
+      </div>
+      <p className="mt-3 font-mono text-[10px] leading-relaxed" style={{ color: "#565B54" }}>
+        Raw headlines from a free public feed — not analysed or scored. For the graph cascades and exposure analysis, use the Analysis tab.
+      </p>
+    </div>
+  );
 }
 
 function ImpactPanel({ origin, dir, tone, implications }) {
