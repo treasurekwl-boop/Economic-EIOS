@@ -83,6 +83,7 @@ export async function fetchSourceStatus() {
     { id: "market_prices", table: "market_prices", ts: "updated_at", label: "FX & commodity prices", feeds: "Overview · Live markets" },
     { id: "instrument_series", table: "instrument_series", ts: "updated_at", label: "Watchlist history", feeds: "Desk · charts, forecasts, regime" },
     { id: "releases", table: "releases", ts: "release_at", label: "Economic calendar", feeds: "Calendar" },
+    { id: "macro_series", table: "macro_series", ts: "updated_at", label: "Macro drivers (rates, risk)", feeds: "Forecast models · rate differential, regime" },
   ];
   if (!isSupabaseConfigured || !supabase) return defs.map((d) => ({ ...d, live: false, count: 0, latest: null }));
   const out = [];
@@ -96,6 +97,18 @@ export async function fetchSourceStatus() {
     } catch { out.push({ ...d, live: false, count: 0, latest: null }); }
   }
   return out;
+}
+
+// Macro driver series (rates, risk, commodities) for the forecasting models.
+// Returns a map keyed by id plus a derived US–SA rate differential when available.
+export async function fetchMacro() {
+  if (!isSupabaseConfigured || !supabase) return { rows: [], byId: {}, saUsSpread: null };
+  const { data, error } = await supabase.from("macro_series").select("*");
+  if (error || !data) return { rows: [], byId: {}, saUsSpread: null };
+  const byId = Object.fromEntries(data.map((r) => [r.id, r]));
+  const sa10 = byId.sa10y?.value, us10 = byId.us10y?.value;
+  const saUsSpread = sa10 != null && us10 != null ? +(sa10 - us10).toFixed(2) : null;
+  return { rows: data, byId, saUsSpread };
 }
 
 // Watchlist price history for the Trading Desk (every-30-min GitHub Action).
