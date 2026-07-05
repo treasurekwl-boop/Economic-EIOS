@@ -3,11 +3,27 @@
 // its transmission channel: event → channel → the indicator it moves. Curated
 // against verified reporting at each data refresh; the analysis explains WHY
 // each story matters, not just what happened.
-// Last curated: 4 July 2026.
+// Last curated: 5 July 2026.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // tone: tailwind (good for the economy) | headwind (bad) | watch (could go either way)
 export const NEWS = [
+  {
+    id: "current-account-q1", date: "Jun 2026 (Q1 data)", source: "SARB Quarterly Bulletin", tone: "tailwind",
+    title: "Current account surplus hits 4-year high on gold exports",
+    what: "SARB's Q1 2026 current account surplus widened to 2.4% of GDP (R190.7bn) — the largest in over four years — up from 0.6% in Q4 2025. The trade surplus jumped to R437.9bn as export earnings rose R78.3bn (mostly gold and PGMs) while imports fell R96.8bn.",
+    why: ["gold & PGM export earnings ↑", "trade surplus widens", "current account improves", "less reliance on foreign capital inflows", "rand supported"],
+    impact: "SA's best external balance in over four years — a structural tailwind that reduces vulnerability to sudden capital outflows, though it's largely a gift of the gold price rally rather than broad-based export competitiveness.",
+    tags: ["Trade", "Gold", "Rand"],
+  },
+  {
+    id: "eskom-408-days", date: "4 Jul 2026", source: "Eskom", tone: "tailwind",
+    title: "Eskom passes 408 days without load-shedding, forecasts blackout-free winter",
+    what: "Eskom has now gone 408 consecutive days without load-shedding — a streak stretching back to late April 2025 and the longest since 2018 — even as winter demand climbs. The utility is now forecasting a blackout-free winter on the back of its Generation Recovery Plan.",
+    why: ["unplanned outages ↓", "grid reliability ↑", "factories can plan production", "investment deterrent eases", "potential growth ↑"],
+    impact: "The single biggest constraint on the 2010s economy is easing structurally — good news for manufacturing and investment, though administered tariffs (below) keep the cost of that reliability high.",
+    tags: ["Energy", "Structural", "Potential"],
+  },
   {
     id: "rand-rally-jul", date: "3 Jul 2026", source: "Market data / SARB", tone: "tailwind",
     title: "Rand extends its rally to ~R16.22/$ — firmest levels in weeks",
@@ -15,14 +31,6 @@ export const NEWS = [
     why: ["oil risk premium keeps fading", "import bill cheaper", "inflation pass-through eases further", "SARB's hike case weakens"],
     impact: "A firmer rand heading into the 23 July MPC decision strengthens the case for a hold — though it's also squeezing rand-hedge earners like Absa's African operations.",
     tags: ["Rand", "CPI", "Repo"],
-  },
-  {
-    id: "mining-pgm-surge", date: "Jun 2026 (Apr data)", source: "Stats SA mining & manufacturing production", tone: "watch",
-    title: "Mining output jumps 8.2% on a 36.5% PGM surge — manufacturing keeps shrinking",
-    what: "Mining production rose 8.2% y/y, driven by a 36.5% jump in platinum-group-metals output, while manufacturing fell 2.9% with basic iron & steel the main drag — confirming a two-speed industrial economy.",
-    why: ["PGM output ↑", "mineral export earnings ↑", "current account improves", "manufacturing still contracts", "factory jobs still at risk"],
-    impact: "Echoes the PMI story: strength is concentrated in mining/PGMs while broader manufacturing — already down 0.8% in Q1 GDP — can't find traction.",
-    tags: ["Mining", "Manufacturing", "Exports"],
   },
   {
     id: "pmi-jun", date: "1 Jul 2026", source: "Absa / S&P Global PMI", tone: "headwind",
@@ -45,7 +53,7 @@ export const NEWS = [
     title: "MPC decision: hold now favoured after the oil crash",
     what: "May's 25bps hike to 7.00% was a pre-emptive strike at the oil shock. With Brent at ~$75 and the rand firmer, the hike case has faded — but SARB flagged services inflation at 4.6% and non-fuel pressures (insurance, financial services).",
     why: ["June CPI print 22 Jul", "MPC reads it next morning", "hold = relief for borrowers", "surprise hike = rand support, growth drag"],
-    impact: "The first big test of the new 3% target's credibility in a shock. Watch the vote split — May's was 4–2.",
+    impact: "The first big test of the new 3% target's credibility in a shock. Watch the vote split — May's was 4–2 — with PwC's mid-year outlook flagging 'higher for longer' rates as the FNB/BER Consumer Confidence Index sank to -19 in Q2 (from -7 in Q1), its weakest since early 2025.",
     tags: ["Repo", "Rand", "CPI"],
   },
   {
@@ -98,7 +106,7 @@ export const NEWS = [
   },
 ];
 
-export const NEWS_AS_OF = "4 July 2026";
+export const NEWS_AS_OF = "5 July 2026";
 
 export const TONES = {
   tailwind: { label: "Tailwind", color: "#7FB58A" },
@@ -111,8 +119,9 @@ export const TONES = {
 // literally lighting up every indicator it moves.
 // dir: +1 the origin rises, −1 it falls. verb = how to describe firing it.
 export const NEWS_GRAPH = {
+  "current-account-q1": { origin: "gold",   dir: 1,  verb: "Trace the gold-driven surplus" },
+  "eskom-408-days":     { origin: "energy", dir: -1, verb: "Trace the reliability milestone" },
   "rand-rally-jul":   { origin: "rand",   dir: -1, verb: "Trace the rand's rally" },
-  "mining-pgm-surge": { origin: "mining", dir: 1,  verb: "Trace the mining surge" },
   "pmi-jun":       { origin: "manuf",     dir: -1, verb: "Trace the factory slump" },
   "july-fuel":     { origin: "fuel",      dir: -1, verb: "Trace the fuel cut" },
   "mpc-july":      { origin: "repo",      dir: 1,  verb: "Trace a rate hike" },
@@ -129,17 +138,23 @@ export const NEWS_GRAPH = {
 // about exposure, NOT personalised financial advice or a prediction of any
 // asset's price. See IMPLICATIONS_DISCLAIMER.
 export const IMPLICATIONS = {
+  "current-account-q1": [
+    { theme: "Gold miners & bullion exporters", dir: "up", note: "Record gold prices and higher export volumes directly lift revenue and profits." },
+    { theme: "The rand", dir: "up", note: "A wider current account surplus reduces reliance on foreign capital inflows to fund SA's external position." },
+    { theme: "Manufacturers & non-mining exporters", dir: "down", note: "The surplus is concentrated in gold and PGMs — broader export competitiveness hasn't improved." },
+    { theme: "Sovereign risk premium", dir: "down", note: "A stronger external balance is a credit-positive signal to ratings agencies and bond investors." },
+  ],
+  "eskom-408-days": [
+    { theme: "Manufacturers & energy-intensive industry", dir: "up", note: "Grid stability removes the load-shedding tax on output and lets factories plan production with confidence." },
+    { theme: "Fixed investment & business confidence", dir: "up", note: "A stable grid removes one of the biggest deterrents to investment that held back capacity for a decade." },
+    { theme: "Diesel generator & backup-power suppliers", dir: "down", note: "Demand for emergency backup power fades as outages become rare." },
+    { theme: "Households", dir: "up", note: "Fewer power cuts mean less food spoilage and lower spending on alternative lighting and cooking." },
+  ],
   "rand-rally-jul": [
     { theme: "Importers & retailers of imported goods", dir: "up", note: "A stronger rand lowers the landed cost of everything bought in dollars." },
     { theme: "Exporters & rand-hedge earners", dir: "down", note: "Miners and multinationals earning offshore see fewer rand per dollar of revenue." },
     { theme: "Inflation-linked assets", dir: "down", note: "A firmer currency eases price pressure, cooling the inflation premium." },
     { theme: "Foreign tourists & travel costs", dir: "down", note: "A stronger rand makes South Africa pricier for dollar-based visitors." },
-  ],
-  "mining-pgm-surge": [
-    { theme: "PGM miners & mining-services suppliers", dir: "up", note: "Higher output and strong platinum prices lift revenue across the value chain." },
-    { theme: "Rail & port capacity", dir: "down", note: "Stronger export volumes test Transnet's already-stretched corridors." },
-    { theme: "Manufacturers & factory workers", dir: "down", note: "Basic iron & steel and broader manufacturing keep contracting even as mining booms." },
-    { theme: "The current account", dir: "up", note: "Bigger mineral export earnings support the trade and current-account balance." },
   ],
   "pmi-jun": [
     { theme: "Manufacturers & industrial jobs", dir: "down", note: "Contracting output puts factory employment under pressure." },
