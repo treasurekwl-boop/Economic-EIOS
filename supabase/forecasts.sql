@@ -19,6 +19,10 @@ create table if not exists public.forecasts (
   hi                numeric,
   conf              numeric,              -- nominal confidence of the band, e.g. 0.68
 
+  -- reference level at forecast time (e.g. repo rate when a repo_rate call is logged,
+  -- so the actual MPC move = new repo − ref_value can be scored later):
+  ref_value         numeric,
+
   -- lifecycle (locked once set):
   made_at           timestamptz not null default now(),
   resolves_at       timestamptz not null, -- when it becomes scorable
@@ -33,6 +37,9 @@ create table if not exists public.forecasts (
   resolved_at       timestamptz,
   updated_at        timestamptz default now()
 );
+
+-- Safe to re-run: add ref_value if this table predates that column.
+alter table public.forecasts add column if not exists ref_value numeric;
 
 create index if not exists forecasts_status_idx on public.forecasts (status, resolves_at);
 create index if not exists forecasts_kind_idx   on public.forecasts (kind, made_at desc);

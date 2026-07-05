@@ -6,7 +6,7 @@ import { VIEWS } from "./Nav.jsx";
 // Premium sidebar (desktop) — brand, country, grouped nav (Engine / Context),
 // and the live rand pinned at the bottom. Mobile keeps the top tab bar.
 const ENGINE_IDS = ["overview", "network", "solver", "sectors", "diagnosis", "desk"];
-const CONTEXT_IDS = ["fundamentals", "news", "calendar", "markets", "citizen", "schools", "data", "track", "fluency"];
+const CONTEXT_IDS = ["fundamentals", "news", "calendar", "markets", "citizen", "schools", "data", "repo", "track", "fluency"];
 
 function BrandMark() {
   return (
