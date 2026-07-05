@@ -10,6 +10,7 @@ import { propagate, nodeById } from "../../config/graph.js";
 import { usePersistedState } from "../../lib/usePersistedState.js";
 import { tint } from "../../config/palette.js";
 import QuantDesk from "./QuantDesk.jsx";
+import ForecastLab from "./ForecastLab.jsx";
 import TradingViewChart from "../ui/TradingViewChart.jsx";
 
 const UP = "#7FB58A", DOWN = "#D8735E", FLAT = "#8A8F88";
@@ -41,7 +42,7 @@ export default function Desk({ onOpenGraph }) {
 
       {/* Tab toggle */}
       <div className="mb-5 flex gap-1.5">
-        {[["workbench", "Workbench"], ["quant", "Quant tools"]].map(([key, lbl]) => (
+        {[["workbench", "Workbench"], ["forecast", "Forecast"], ["quant", "Quant tools"]].map(([key, lbl]) => (
           <button key={key} onClick={() => setTab(key)} className="rounded-lg border px-3.5 py-2 text-[12.5px] font-medium transition-all"
             style={tab === key ? { background: tint("#6FBDB4", 0.14), borderColor: tint("#6FBDB4", 0.55), color: "#6FBDB4" } : { background: "rgba(19,22,20,0.6)", borderColor: "rgba(35,40,35,1)", color: "#8A8F88" }}>
             {lbl}
@@ -51,6 +52,8 @@ export default function Desk({ onOpenGraph }) {
 
       {tab === "quant" ? (
         <QuantDesk data={data} />
+      ) : tab === "forecast" ? (
+        <ForecastLab data={data} />
       ) : (
         <>
           {loaded && !hasFeed && (
