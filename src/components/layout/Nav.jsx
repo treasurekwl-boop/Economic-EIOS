@@ -1,4 +1,4 @@
-import { LayoutDashboard, Share2, Microscope, Newspaper, CalendarClock, SlidersHorizontal, Layers, Scale, Stethoscope, Users, BookOpen, GraduationCap, Briefcase, Database, Target, Landmark } from "lucide-react";
+import { LayoutDashboard, Share2, Microscope, Newspaper, CalendarClock, SlidersHorizontal, Layers, Scale, Stethoscope, Users, BookOpen, GraduationCap, Briefcase, Database, Target, Landmark, Zap } from "lucide-react";
 
 export const VIEWS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -15,6 +15,7 @@ export const VIEWS = [
   { id: "schools", label: "Schools", icon: GraduationCap },
   { id: "data", label: "Data", icon: Database },
   { id: "repo", label: "Repo call", icon: Landmark },
+  { id: "reactions", label: "Reactions", icon: Zap },
   { id: "track", label: "Track record", icon: Target },
   { id: "fluency", label: "Fluency", icon: BookOpen },
 ];
