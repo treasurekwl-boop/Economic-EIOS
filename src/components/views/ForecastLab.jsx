@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine } from "recharts";
+import { ComposedChart, Line, Area, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip } from "recharts";
 import { TrendingUp, ChevronDown, BookOpen, Layers3, Check, Cpu } from "lucide-react";
 import { INSTRUMENTS } from "../../config/desk.js";
 import {
@@ -10,6 +10,23 @@ import { AI_METHODS, AI_GOVERNANCE, AI_NOTE } from "../../config/aimethods.js";
 import { tint } from "../../config/palette.js";
 
 const instById = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i]));
+
+// Date helpers for the forecast timeline. EOD daily series → each forecast step is
+// one TRADING day (weekends skipped), so the x-axis carries real calendar dates.
+const isoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fmtDay = (iso) => {
+  if (!iso) return "";
+  const s = String(iso).length <= 10 ? `${iso}T12:00:00` : iso;
+  const d = new Date(s);
+  return isNaN(d) ? String(iso) : d.toLocaleDateString("en-ZA", { day: "2-digit", month: "short" });
+};
+function futureBizDays(lastISO, n) {
+  const out = [];
+  const d = new Date(`${lastISO || isoLocal(new Date())}T12:00:00`);
+  while (out.length < n) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) out.push(isoLocal(d)); }
+  return out;
+}
+
 const fmt = (inst, v) => {
   if (v == null || !isFinite(v)) return "—";
   if (inst?.fmt === "R") return `R${v.toFixed(inst.dp)}`;
@@ -44,20 +61,29 @@ export default function ForecastLab({ data }) {
   const [h, setH] = useState(10);
   const inst = instById[instId];
   const closes = data?.[instId]?.series?.map((s) => s[1]) ?? [];
+  const dates = data?.[instId]?.series?.map((s) => s[0]) ?? [];
   const F = useMemo(() => compute(closes, h), [instId, h, closes.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const rg = useMemo(() => (closes.length > 45 ? regimes(closes) : null), [instId, closes.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const an = useMemo(() => (closes.length > 45 ? anomalies(closes) : null), [instId, closes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chart = useMemo(() => {
-    if (!F) return [];
+    if (!F) return { rows: [], junction: null };
     const tail = 80;
-    const hist = closes.slice(-tail);
-    const rows = hist.map((p, i) => ({ x: i, hist: p }));
-    const base = hist.length - 1;
-    rows[base] = { ...rows[base], fc: closes[closes.length - 1], lo: closes[closes.length - 1], hi: closes[closes.length - 1] };
-    F.comb.forEach((p, k) => rows.push({ x: base + 1 + k, fc: p, lo: F.band?.[k]?.lo, hi: F.band?.[k]?.hi }));
-    return rows;
-  }, [F, closes]);
+    const hc = closes.slice(-tail), hd = dates.slice(-tail);
+    const rows = hc.map((p, i) => ({ date: hd[i] || `h${i}`, hist: p }));
+    const li = rows.length - 1;
+    const last = closes[closes.length - 1];
+    const junction = rows[li]?.date;
+    // Junction point ties history to the forecast (zero-width band, all lines meet).
+    rows[li] = { ...rows[li], fc: last, dr: last, ho: last, ar: last, lo: last, hi: last, band: [last, last] };
+    const fds = futureBizDays(hd[hd.length - 1], F.comb.length);
+    F.comb.forEach((p, k) => rows.push({
+      date: fds[k], fc: p, dr: F.dr[k], ho: F.ho[k], ar: F.ar[k],
+      lo: F.band?.[k]?.lo, hi: F.band?.[k]?.hi,
+      band: F.band ? [F.band[k].lo, F.band[k].hi] : undefined,
+    }));
+    return { rows, junction };
+  }, [F, instId, h]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="animate-fade-up">
@@ -94,23 +120,28 @@ export default function ForecastLab({ data }) {
 
           <div className="mt-4 rounded-xl border p-3" style={{ borderColor: "#232823", background: "linear-gradient(155deg, #131614, #101311)" }}>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-[13px] font-medium text-ink">{inst?.label} · {h}-day forecast</span>
-              <div className="flex gap-3 font-mono text-[9px]">
+              <span className="text-[13px] font-medium text-ink">{inst?.label} · {h}-trading-day forecast</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[9px]">
                 <span style={{ color: "#8A8F88" }}>— history</span>
                 <span style={{ color: "#7FB58A" }}>— combined</span>
-                <span style={{ color: "#6FBDB4" }}>· · 90% band</span>
+                <span style={{ color: "#6FBDB4" }}>▨ 90% band</span>
+                <span style={{ color: "#6B7068" }}>· · methods</span>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={chart} margin={{ left: 4, right: 12, top: 8, bottom: 2 }}>
-                <XAxis dataKey="x" tick={false} stroke="#232823" height={2} />
+              <ComposedChart data={chart.rows} margin={{ left: 4, right: 12, top: 8, bottom: 2 }}>
+                <XAxis dataKey="date" tick={{ fill: "#6B7068", fontSize: 9 }} stroke="#232823" height={16}
+                  interval={Math.max(0, Math.floor(chart.rows.length / 6))} tickFormatter={fmtDay} minTickGap={20} />
                 <YAxis tick={{ fill: "#6B7068", fontSize: 10 }} stroke="#232823" width={44} domain={["auto", "auto"]} />
-                <ReferenceLine x={chart.length - h - 1} stroke="#3A403A" strokeDasharray="3 3" />
+                <Tooltip content={<TipContent inst={inst} />} cursor={{ stroke: "#6FBDB4", strokeDasharray: "3 3" }} />
+                {chart.junction && <ReferenceLine x={chart.junction} stroke="#3A403A" strokeDasharray="3 3" />}
+                <Area dataKey="band" stroke="none" fill="#6FBDB4" fillOpacity={0.1} isAnimationActive={false} connectNulls />
                 <Line dataKey="hist" stroke="#8A8F88" strokeWidth={1.8} dot={false} isAnimationActive={false} connectNulls />
-                <Line dataKey="hi" stroke="#6FBDB4" strokeWidth={1} strokeDasharray="3 3" dot={false} isAnimationActive={false} connectNulls />
-                <Line dataKey="lo" stroke="#6FBDB4" strokeWidth={1} strokeDasharray="3 3" dot={false} isAnimationActive={false} connectNulls />
-                <Line dataKey="fc" stroke="#7FB58A" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls />
-              </LineChart>
+                <Line dataKey="dr" stroke="#C6A15B" strokeWidth={1} strokeDasharray="2 3" dot={false} opacity={0.5} isAnimationActive={false} connectNulls />
+                <Line dataKey="ho" stroke="#A99BF5" strokeWidth={1} strokeDasharray="2 3" dot={false} opacity={0.5} isAnimationActive={false} connectNulls />
+                <Line dataKey="ar" stroke="#6FBDB4" strokeWidth={1} strokeDasharray="2 3" dot={false} opacity={0.45} isAnimationActive={false} connectNulls />
+                <Line dataKey="fc" stroke="#7FB58A" strokeWidth={2.2} dot={false} isAnimationActive={false} connectNulls />
+              </ComposedChart>
             </ResponsiveContainer>
             <div className="mt-1 grid grid-cols-2 gap-2 border-t pt-2.5 sm:grid-cols-4" style={{ borderColor: "#1E231F" }}>
               <Stat label={`Point (${h}d)`} value={fmt(inst, F.comb[h - 1])} color="#7FB58A" />
@@ -283,6 +314,27 @@ function Playbook() {
             ))}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// Crosshair tooltip: the date under the cursor, and either the historical price or
+// the forecast point + its 90% band (the honest range, which is the real signal).
+function TipContent({ active, payload, inst }) {
+  if (!active || !payload || !payload.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  const isFc = row.hist == null && row.fc != null;
+  return (
+    <div className="rounded-md border px-2.5 py-1.5 font-mono text-[10px] leading-relaxed" style={{ borderColor: "#2A2F29", background: "rgba(10,12,10,0.95)" }}>
+      <div style={{ color: "#8A8F88" }}>{fmtDay(row.date)}{isFc ? " · forecast" : ""}</div>
+      {row.hist != null && <div style={{ color: "#C9C6BD" }}>price <b style={{ color: "#ECEAE3" }}>{fmt(inst, row.hist)}</b></div>}
+      {isFc && (
+        <>
+          <div style={{ color: "#7FB58A" }}>combined <b>{fmt(inst, row.fc)}</b></div>
+          {row.hi != null && <div style={{ color: "#6FBDB4" }}>90% band {fmt(inst, row.lo)} – {fmt(inst, row.hi)}</div>}
+        </>
       )}
     </div>
   );
