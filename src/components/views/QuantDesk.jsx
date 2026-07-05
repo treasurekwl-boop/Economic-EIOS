@@ -10,6 +10,7 @@ import {
   SPREAD_FORCES, MONITOR_ITEMS, DESIGN_PRINCIPLES, IMPL_WORKFLOW, MICRO_NOTE,
 } from "../../config/microstructure.js";
 import { propagate } from "../../config/graph.js";
+import { predictability } from "../../lib/complexity.js";
 import { usePersistedState } from "../../lib/usePersistedState.js";
 import { tint } from "../../config/palette.js";
 
@@ -37,6 +38,7 @@ export default function QuantDesk({ data }) {
       </div>
 
       <ExecutionPlanner data={data} />
+      <Predictability data={data} />
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <Calc title="Forward price (cost-of-carry)" color="#6FBDB4"
@@ -131,6 +133,82 @@ function Calc({ title, note, fields, compute, color }) {
           <span className="font-display text-[20px]" style={{ color: res.color ?? color, fontVariantNumeric: "tabular-nums" }}>{res.value}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+// Complexity diagnostics: how forecastable is this series RIGHT NOW? Hurst (regime
+// of persistence), permutation entropy (ordinal randomness), rough Lyapunov. The
+// buildable slice of the complexity-science brief — pure math on the EOD feed.
+const TONE = { revert: "#6FBDB4", trend: "#C6A15B", flat: "#8A8F88", struct: "#7FB58A", some: "#C6A15B", chaos: "#D8735E", stable: "#7FB58A" };
+
+function readText(P) {
+  if (P.hurst == null) return null;
+  const h = P.hurstLabel.tone, pe = P.peLabel.tone;
+  let base = h === "revert" ? "Mean-reverting — stretched moves have tended to snap back, so fading extremes beats chasing."
+    : h === "trend" ? "Trending — momentum has persisted, so pullbacks have tended to get bought."
+    : "Close to a random walk — little directional edge; trust the forecast's uncertainty band, not its point, and size small.";
+  const mod = pe === "struct" ? " There's also more short-term structure than usual — slightly higher predictability."
+    : pe === "flat" ? " And the ordinal signal is near-random, so keep expectations modest."
+    : "";
+  return base + mod;
+}
+
+function Predictability({ data }) {
+  const [instId, setInstId] = useState("usdzar");
+  const closes = data?.[instId]?.series?.map((s) => s[1]) ?? [];
+  const P = useMemo(() => (closes.length >= 40 ? predictability(closes) : null), [instId, closes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const read = P ? readText(P) : null;
+
+  return (
+    <div className="mt-4 rounded-2xl border p-4" style={{ borderColor: tint("#6FBDB4", 0.25), background: "linear-gradient(160deg, rgba(111,189,180,0.05), #101311 60%)" }}>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#6FBDB4" }}>
+          <Zap className="h-3.5 w-3.5" /> Predictability · complexity diagnostics
+        </div>
+        <select value={instId} onChange={(e) => setInstId(e.target.value)} className="rounded-md border px-2 py-1 text-[12px] text-ink" style={{ borderColor: "#262B27", background: "#12150F" }}>
+          {INSTRUMENTS.map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}
+        </select>
+      </div>
+      <p className="mb-3 text-[12.5px] leading-relaxed text-muted">
+        How forecastable is this series right now — is it mean-reverting, a random walk, or trending? Pure time-series
+        complexity measures on the EOD feed. Diagnostics, not signals.
+      </p>
+
+      {!P ? (
+        <div className="rounded-xl border px-4 py-3 font-mono text-[11px]" style={{ borderColor: "#232823", color: "#565B54" }}>
+          Needs ~40+ daily closes for {instById[instId]?.label ?? "this instrument"} — activate the feed in the Workbench tab.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <Diag label="Hurst exponent" value={P.hurst?.toFixed(2) ?? "—"} sub={P.hurstLabel.text} color={TONE[P.hurstLabel.tone]} />
+            <Diag label="Permutation entropy" value={P.pe?.toFixed(2) ?? "—"} sub={P.peLabel.text} color={TONE[P.peLabel.tone]} />
+            <Diag label="Lyapunov (rough)" value={(P.lyap >= 0 ? "+" : "") + (P.lyap?.toFixed(2) ?? "—")} sub={P.lyapLabel.text} color={TONE[P.lyapLabel.tone]} />
+          </div>
+          {read && (
+            <div className="mt-3 rounded-xl border px-4 py-2.5 text-[12.5px] leading-relaxed" style={{ borderColor: "#232823", background: "rgba(8,10,9,0.5)", color: "#C9C6BD" }}>
+              <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "#6B7068" }}>Read · </span>{read}
+            </div>
+          )}
+        </>
+      )}
+
+      <p className="mt-2.5 font-mono text-[9px] leading-relaxed" style={{ color: "#565B54" }}>
+        Hurst: &lt;0.5 mean-reverting, ~0.5 random walk, &gt;0.5 trending (Anis–Lloyd bias-corrected). Permutation entropy: 1 = maximally
+        random. Lyapunov is a rough small-sample estimate — treat as directional only. On ~months of daily data these are noisy;
+        read them as a regime hint, not a precise number.
+      </p>
+    </div>
+  );
+}
+
+function Diag({ label, value, sub, color }) {
+  return (
+    <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: "#232823", background: "linear-gradient(155deg, #131614, #101311)" }}>
+      <div className="font-mono text-[8.5px] uppercase tracking-wider text-muted-2">{label}</div>
+      <div className="mt-0.5 font-display text-[20px] font-semibold tabular-nums" style={{ color }}>{value}</div>
+      <div className="font-mono text-[8.5px] leading-tight" style={{ color: "#6B7068" }}>{sub}</div>
     </div>
   );
 }
