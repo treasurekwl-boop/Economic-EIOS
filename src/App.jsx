@@ -20,6 +20,7 @@ import Calendar from "./components/views/Calendar.jsx";
 import Schools from "./components/views/Schools.jsx";
 import Desk from "./components/views/Desk.jsx";
 import DataLayer from "./components/views/DataLayer.jsx";
+import TrackRecord from "./components/views/TrackRecord.jsx";
 
 export default function App() {
   const [view, setView] = useState("overview");
@@ -72,6 +73,7 @@ export default function App() {
             {view === "schools" && <Schools onOpenLens={openLens} />}
             {view === "desk" && <Desk onOpenGraph={openGraph} />}
             {view === "data" && <DataLayer />}
+            {view === "track" && <TrackRecord />}
             {view === "fundamentals" && <Fundamentals onOpenGraph={openGraph} />}
             {view === "news" && <News onOpenGraph={openGraph} />}
             {view === "calendar" && <Calendar onOpenGraph={openGraph} />}

@@ -99,6 +99,15 @@ export async function fetchSourceStatus() {
   return out;
 }
 
+// The forecast ledger for the self-grading Track Record view. Read-only from the
+// app (writes are server-side only). Newest first; the view aggregates via scoring.js.
+export async function fetchForecasts() {
+  if (!isSupabaseConfigured || !supabase) return [];
+  const { data, error } = await supabase.from("forecasts").select("*").order("made_at", { ascending: false }).limit(500);
+  if (error || !data) return [];
+  return data;
+}
+
 // Macro driver series (rates, risk, commodities) for the forecasting models.
 // Returns a map keyed by id plus a derived US–SA rate differential when available.
 export async function fetchMacro() {
