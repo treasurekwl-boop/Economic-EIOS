@@ -7,6 +7,7 @@ import {
   NODES, EDGES, NODE_TYPES, driversOf, effectsOf, nodeById, tracePath, propagate, pointEstimate, lagLabel, readDirection,
 } from "../../config/graph.js";
 import { tint } from "../../config/palette.js";
+import { centrality } from "../../lib/graphMetrics.js";
 import Insight from "../ui/Insight.jsx";
 import InfoTip from "../ui/InfoTip.jsx";
 import CascadeRows from "../ui/CascadeRows.jsx";
@@ -15,6 +16,39 @@ import { LENSES, lensById, LENSES_DISCLAIMER } from "../../config/lenses.js";
 
 const TONE = { support: "#7FB58A", pressure: "#D8735E", mixed: "#C6A15B" };
 const UP = "#7FB58A", DOWN = "#D8735E";
+
+// Systemic-centrality strip: the most systemic nodes by betweenness (they sit on the
+// most cause→effect chains, so a shock there propagates furthest). Click to focus.
+function FragilityStrip({ onGo, focusId }) {
+  const rows = useMemo(() => centrality().slice(0, 8), []);
+  const max = rows[0]?.betweenness || 1;
+  return (
+    <div className="mb-4 rounded-xl border p-3.5" style={{ borderColor: tint("#D8735E", 0.22), background: "linear-gradient(160deg, rgba(216,115,94,0.04), #101311 60%)" }}>
+      <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#D8735E" }}>
+        <Scale className="h-3.5 w-3.5" /> Systemic centrality · which levers propagate furthest
+      </div>
+      <div className="space-y-1">
+        {rows.map((r, i) => {
+          const on = r.id === focusId;
+          return (
+            <button key={r.id} onClick={() => onGo(r.id)} className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left transition-colors" style={{ background: on ? tint(r.color, 0.1) : "transparent" }}>
+              <span className="w-3 shrink-0 text-center font-mono text-[9px]" style={{ color: "#565B54" }}>{i + 1}</span>
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: r.color }} />
+              <span className="w-[120px] shrink-0 truncate text-[12.5px]" style={{ color: on ? "#ECEAE3" : "#C9C6BD" }}>{r.label}</span>
+              <span className="relative h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(35,40,35,0.7)" }}>
+                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(r.betweenness / max) * 100}%`, background: `linear-gradient(90deg, ${tint(r.color, 0.5)}, ${r.color})` }} />
+              </span>
+              <span className="w-[62px] shrink-0 text-right font-mono text-[9px]" style={{ color: "#6B7068" }}>drives {r.outdeg}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 font-mono text-[9px] leading-relaxed" style={{ color: "#565B54" }}>
+        Betweenness centrality on the causal graph — a high score means the node sits on many cause→effect chains, so a shock there reaches furthest. Click any to explore it.
+      </p>
+    </div>
+  );
+}
 
 export default function Network({ initialFocus, initialShock, initialLens, linkToken }) {
   const { fx } = useEngine();
@@ -93,6 +127,8 @@ export default function Network({ initialFocus, initialShock, initialLens, linkT
           </button>
         ))}
       </div>
+
+      <FragilityStrip onGo={go} focusId={focusId} />
 
       {/* Trail */}
       <div className="mb-4 flex flex-wrap items-center gap-1.5 font-mono text-[11px]">

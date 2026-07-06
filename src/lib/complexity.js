@@ -120,6 +120,43 @@ export function lyapLabel(l) {
   return { text: "stable / regular (rough)", tone: "stable" };
 }
 
+// ── Early-warning / critical slowing down ──
+// As a system loses resilience before a regime shift, it recovers more slowly from
+// perturbations — showing up as RISING lag-1 autocorrelation AND rising variance
+// together. Computed on rolling windows of log returns. HONEST CAVEAT (per the
+// literature): a changing noise regime can trigger false alarms, so this is a
+// radar, not an alarm bell.
+export function earlyWarning(series, win = 30) {
+  const x = logReturns(series);
+  const N = x.length;
+  if (N < win + 20) return null;
+  const ar1 = [], varr = [];
+  for (let end = win; end <= N; end++) {
+    const w = x.slice(end - win, end);
+    const m = mean(w);
+    let den = 0, num = 0;
+    for (let i = 0; i < w.length; i++) den += (w[i] - m) ** 2;
+    for (let i = 1; i < w.length; i++) num += (w[i] - m) * (w[i - 1] - m);
+    varr.push(den / w.length);
+    ar1.push(den > 0 ? num / den : 0);
+  }
+  // Compare the recent window against the earlier baseline (robust to saturation —
+  // captures a gradual loss of resilience even once the signal has partly plateaued).
+  const half = Math.max(5, Math.floor(ar1.length / 2));
+  const recN = Math.max(8, Math.floor(ar1.length / 4));
+  const baseAr = mean(ar1.slice(0, half)), recAr = mean(ar1.slice(-recN));
+  const baseVar = (mean(varr.slice(0, half)) || 1e-12), recVar = mean(varr.slice(-recN));
+  const ar1Dir = recAr > baseAr + 0.05 ? "rising" : recAr < baseAr - 0.05 ? "falling" : "flat";
+  const varDir = recVar > baseVar * 1.15 ? "rising" : recVar < baseVar * 0.85 ? "falling" : "flat";
+  return {
+    ar1Now: +ar1[ar1.length - 1].toFixed(2),
+    ar1Dir, varDir,
+    csd: ar1Dir === "rising" && varDir === "rising",
+    ar1Spark: ar1.slice(-40).map((v) => +v.toFixed(3)),
+    varSpark: varr.slice(-40),
+  };
+}
+
 // One call → the whole predictability picture for a price series.
 export function predictability(series) {
   const H = hurst(series), pe = permutationEntropy(series), l = lyapunov(series);

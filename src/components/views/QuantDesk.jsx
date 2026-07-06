@@ -10,7 +10,7 @@ import {
   SPREAD_FORCES, MONITOR_ITEMS, DESIGN_PRINCIPLES, IMPL_WORKFLOW, MICRO_NOTE,
 } from "../../config/microstructure.js";
 import { propagate } from "../../config/graph.js";
-import { predictability } from "../../lib/complexity.js";
+import { predictability, earlyWarning } from "../../lib/complexity.js";
 import { usePersistedState } from "../../lib/usePersistedState.js";
 import { tint } from "../../config/palette.js";
 
@@ -39,6 +39,7 @@ export default function QuantDesk({ data }) {
 
       <ExecutionPlanner data={data} />
       <Predictability data={data} />
+      <EarlyWarning data={data} />
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <Calc title="Forward price (cost-of-carry)" color="#6FBDB4"
@@ -209,6 +210,68 @@ function Diag({ label, value, sub, color }) {
       <div className="font-mono text-[8.5px] uppercase tracking-wider text-muted-2">{label}</div>
       <div className="mt-0.5 font-display text-[20px] font-semibold tabular-nums" style={{ color }}>{value}</div>
       <div className="font-mono text-[8.5px] leading-tight" style={{ color: "#6B7068" }}>{sub}</div>
+    </div>
+  );
+}
+
+// Early-warning radar: critical slowing down. Rising lag-1 autocorrelation AND
+// variance together = a system losing resilience before a possible regime shift.
+const DIR = { rising: { i: "↑", c: "#C6A15B" }, falling: { i: "↓", c: "#7FB58A" }, flat: { i: "→", c: "#8A8F88" } };
+
+function EarlyWarning({ data }) {
+  const [instId, setInstId] = useState("usdzar");
+  const closes = data?.[instId]?.series?.map((s) => s[1]) ?? [];
+  const E = useMemo(() => (closes.length >= 50 ? earlyWarning(closes) : null), [instId, closes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="mt-4 rounded-2xl border p-4" style={{ borderColor: tint("#D8735E", 0.22), background: "linear-gradient(160deg, rgba(216,115,94,0.045), #101311 60%)" }}>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "#D8735E" }}>
+          <Gauge className="h-3.5 w-3.5" /> Early-warning radar · critical slowing down
+        </div>
+        <select value={instId} onChange={(e) => setInstId(e.target.value)} className="rounded-md border px-2 py-1 text-[12px] text-ink" style={{ borderColor: "#262B27", background: "#12150F" }}>
+          {INSTRUMENTS.map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}
+        </select>
+      </div>
+      <p className="mb-3 text-[12.5px] leading-relaxed text-muted">
+        As a market loses resilience before a regime shift, it recovers from shocks more slowly — showing up as rising
+        autocorrelation <i>and</i> rising variance together. A radar, not an alarm bell.
+      </p>
+
+      {!E ? (
+        <div className="rounded-xl border px-4 py-3 font-mono text-[11px]" style={{ borderColor: "#232823", color: "#565B54" }}>
+          Needs ~50+ daily closes for {instById[instId]?.label ?? "this instrument"} — activate the feed in the Workbench tab.
+        </div>
+      ) : (
+        <>
+          <div className={`rounded-xl border px-4 py-2.5 text-[13px] font-medium`} style={{ borderColor: E.csd ? tint("#C6A15B", 0.5) : tint("#7FB58A", 0.4), background: E.csd ? "rgba(198,161,91,0.08)" : "rgba(127,181,138,0.06)", color: E.csd ? "#E0C078" : "#7FB58A" }}>
+            {E.csd ? "⚠ Critical slowing down building — resilience may be eroding" : "No tipping signal — resilience looks intact"}
+          </div>
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
+            <div className="rounded-xl border px-3.5 py-3" style={{ borderColor: "#232823", background: "linear-gradient(155deg, #131614, #101311)" }}>
+              <div className="font-mono text-[8.5px] uppercase tracking-wider text-muted-2">Lag-1 autocorrelation</div>
+              <div className="mt-0.5 flex items-baseline gap-1.5">
+                <span className="font-display text-[20px] font-semibold tabular-nums text-ink">{E.ar1Now.toFixed(2)}</span>
+                <span className="font-mono text-[12px]" style={{ color: DIR[E.ar1Dir].c }}>{DIR[E.ar1Dir].i} {E.ar1Dir}</span>
+              </div>
+              <div className="font-mono text-[8.5px]" style={{ color: "#565B54" }}>slower recovery = higher</div>
+            </div>
+            <div className="rounded-xl border px-3.5 py-3" style={{ borderColor: "#232823", background: "linear-gradient(155deg, #131614, #101311)" }}>
+              <div className="font-mono text-[8.5px] uppercase tracking-wider text-muted-2">Variance</div>
+              <div className="mt-0.5 flex items-baseline gap-1.5">
+                <span className="font-display text-[20px] font-semibold tabular-nums" style={{ color: DIR[E.varDir].c }}>{DIR[E.varDir].i}</span>
+                <span className="font-mono text-[12px]" style={{ color: DIR[E.varDir].c }}>{E.varDir}</span>
+              </div>
+              <div className="font-mono text-[8.5px]" style={{ color: "#565B54" }}>vs the earlier baseline</div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <p className="mt-2.5 font-mono text-[9px] leading-relaxed" style={{ color: "#565B54" }}>
+        Honest caveat (from the literature): a change in the underlying noise regime can trigger false alarms — so treat a
+        signal as a prompt to check, not a prediction. Computed on rolling windows of daily log-returns.
+      </p>
     </div>
   );
 }
