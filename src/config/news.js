@@ -3,25 +3,33 @@
 // its transmission channel: event → channel → the indicator it moves. Curated
 // against verified reporting at each data refresh; the analysis explains WHY
 // each story matters, not just what happened.
-// Last curated: 5 July 2026.
+// Last curated: 6 July 2026.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // tone: tailwind (good for the economy) | headwind (bad) | watch (could go either way)
 export const NEWS = [
   {
-    id: "current-account-q1", date: "Jun 2026 (Q1 data)", source: "SARB Quarterly Bulletin", tone: "tailwind",
-    title: "Current account surplus hits 4-year high on gold exports",
-    what: "SARB's Q1 2026 current account surplus widened to 2.4% of GDP (R190.7bn) — the largest in over four years — up from 0.6% in Q4 2025. The trade surplus jumped to R437.9bn as export earnings rose R78.3bn (mostly gold and PGMs) while imports fell R96.8bn.",
-    why: ["gold & PGM export earnings ↑", "trade surplus widens", "current account improves", "less reliance on foreign capital inflows", "rand supported"],
-    impact: "SA's best external balance in over four years — a structural tailwind that reduces vulnerability to sudden capital outflows, though it's largely a gift of the gold price rally rather than broad-based export competitiveness.",
-    tags: ["Trade", "Gold", "Rand"],
+    id: "absa-trading-update", date: "30 Jun 2026", source: "Absa Group / JSE SENS", tone: "headwind",
+    title: "Absa slides ~6% as trading update flags Africa earnings pressure",
+    what: "Absa's voluntary H1 2026 trading update wiped roughly R14bn off its market cap as the share price fell as much as 6.4% to around R228. Net interest income growth stays low-single-digit on margin compression from policy-rate cuts across its Africa Regions operations, with Africa Regions and CIB earnings both softening; return on equity is guided at ~15% for FY2026, weaker than the market had hoped.",
+    why: ["Africa Regions margins compress as other central banks cut", "bank earnings guidance softens", "finance-sector sentiment cools", "credit-extension appetite may tighten"],
+    impact: "Finance is SA's single biggest sector (22.7% of GDP) — a wobble at one of the big four banks is a read-through on credit conditions and confidence, even though the immediate driver is Absa's pan-African footprint rather than the domestic economy.",
+    tags: ["Finance", "Banks", "Markets"],
   },
   {
-    id: "eskom-408-days", date: "4 Jul 2026", source: "Eskom", tone: "tailwind",
-    title: "Eskom passes 408 days without load-shedding, forecasts blackout-free winter",
-    what: "Eskom has now gone 408 consecutive days without load-shedding — a streak stretching back to late April 2025 and the longest since 2018 — even as winter demand climbs. The utility is now forecasting a blackout-free winter on the back of its Generation Recovery Plan.",
+    id: "trade-deficit-may", date: "May 2026 data, released Jun 2026", source: "SARS Trade Statistics", tone: "watch",
+    title: "Trade balance swings to a R1.8bn deficit in May",
+    what: "SARS recorded a preliminary May trade deficit of R1.8bn (exports R178.8bn vs imports R180.6bn) — the first monthly deficit after several months of surpluses. Excluding BELN neighbours the gap widens to R11.9bn. The year-to-date position is still a R85.8bn surplus for Jan–May, well ahead of the R60.1bn surplus over the same months in 2025.",
+    why: ["import bill (fuel, capital goods) rises", "single-month surplus streak breaks", "rand loses a supportive monthly data point", "cumulative external position still comfortably positive"],
+    impact: "One soft month doesn't undo the current account's best position in four years, but it's a reminder the gold-and-PGM-driven surplus is commodity-price dependent rather than a broad-based export recovery.",
+    tags: ["Trade", "Rand", "Exports"],
+  },
+  {
+    id: "eskom-408-days", date: "6 Jul 2026", source: "Eskom", tone: "tailwind",
+    title: "Eskom passes 413 days without load-shedding, on track for a blackout-free winter",
+    what: "Eskom has now gone more than 413 consecutive days without load-shedding — a streak stretching back to 16 May 2025 — with a forecast 6GW surplus carrying it through the Winter Outlook period (1 April–31 August). The Energy Availability Factor has climbed to 63.81% (from 58.31% a year ago) and diesel-generator spend is down 84% year-to-date (R746m vs R4.72bn).",
     why: ["unplanned outages ↓", "grid reliability ↑", "factories can plan production", "investment deterrent eases", "potential growth ↑"],
-    impact: "The single biggest constraint on the 2010s economy is easing structurally — good news for manufacturing and investment, though administered tariffs (below) keep the cost of that reliability high.",
+    impact: "The single biggest constraint on the 2010s economy keeps easing structurally — good news for manufacturing and investment, though administered tariffs (below) keep the cost of that reliability high.",
     tags: ["Energy", "Structural", "Potential"],
   },
   {
@@ -51,17 +59,17 @@ export const NEWS = [
   {
     id: "mpc-july", date: "due 23 Jul 2026", source: "SARB MPC", tone: "watch",
     title: "MPC decision: hold now favoured after the oil crash",
-    what: "May's 25bps hike to 7.00% was a pre-emptive strike at the oil shock. With Brent at ~$75 and the rand firmer, the hike case has faded — but SARB flagged services inflation at 4.6% and non-fuel pressures (insurance, financial services).",
+    what: "May's 25bps hike to 7.00% was a pre-emptive strike at the oil shock. With Brent at ~$75 and the rand firmer, the hike case has faded — economists including PSG's Johann Els now expect no July hike despite firmer inflation expectations — but SARB flagged services inflation at 4.6% and non-fuel pressures (insurance, financial services).",
     why: ["June CPI print 22 Jul", "MPC reads it next morning", "hold = relief for borrowers", "surprise hike = rand support, growth drag"],
     impact: "The first big test of the new 3% target's credibility in a shock. Watch the vote split — May's was 4–2 — with PwC's mid-year outlook flagging 'higher for longer' rates as the FNB/BER Consumer Confidence Index sank to -19 in Q2 (from -7 in Q1), its weakest since early 2025.",
     tags: ["Repo", "Rand", "CPI"],
   },
   {
-    id: "qlfs-q1", date: "12 May 2026", source: "Stats SA QLFS", tone: "headwind",
-    title: "345,000 jobs lost in Q1 — unemployment 32.7%",
-    what: "The worst quarterly jobs print in years: unemployment up 1.3pp, youth at 45.8%, and only KwaZulu-Natal added jobs. 8.1m people now want work the economy isn't creating.",
+    id: "qlfs-q1", date: "12 May 2026 (QLFS); 30 Jun 2026 (QES)", source: "Stats SA QLFS / QES", tone: "headwind",
+    title: "345,000 jobs lost in Q1 — unemployment 32.7%, formal payrolls confirm the slide",
+    what: "The worst quarterly jobs print in years: unemployment up 1.3pp, youth at 45.8%, and only KwaZulu-Natal added jobs. Stats SA's formal non-agricultural payroll survey (QES) corroborates it: 80,000 formal-sector jobs were shed q/q in Q1 (121,000 y/y), led by community services and trade, while gross earnings fell R43.4bn (-4.0%) to R1.04tn.",
     why: ["employment ↓", "household income & spending ↓", "consumption (60% of GDP) weakens", "social strain & fiscal pressure ↑"],
-    impact: "Confirms the core thesis: 1–2% growth cannot absorb ~360k new entrants a year. The speed limit is the jobs crisis.",
+    impact: "Confirms the core thesis: 1–2% growth cannot absorb ~360k new entrants a year. The speed limit is the jobs crisis — and now it shows up in payrolls and pay packets, not just the household survey.",
     tags: ["Labour", "Consumption", "Potential"],
   },
   {
@@ -106,7 +114,7 @@ export const NEWS = [
   },
 ];
 
-export const NEWS_AS_OF = "5 July 2026";
+export const NEWS_AS_OF = "6 July 2026";
 
 export const TONES = {
   tailwind: { label: "Tailwind", color: "#7FB58A" },
@@ -119,7 +127,8 @@ export const TONES = {
 // literally lighting up every indicator it moves.
 // dir: +1 the origin rises, −1 it falls. verb = how to describe firing it.
 export const NEWS_GRAPH = {
-  "current-account-q1": { origin: "gold",   dir: 1,  verb: "Trace the gold-driven surplus" },
+  "absa-trading-update": { origin: "finance", dir: -1, verb: "Trace the bank earnings wobble" },
+  "trade-deficit-may":   { origin: "rand",    dir: 1,  verb: "Trace the trade deficit's drag" },
   "eskom-408-days":     { origin: "energy", dir: -1, verb: "Trace the reliability milestone" },
   "rand-rally-jul":   { origin: "rand",   dir: -1, verb: "Trace the rand's rally" },
   "pmi-jun":       { origin: "manuf",     dir: -1, verb: "Trace the factory slump" },
@@ -138,11 +147,15 @@ export const NEWS_GRAPH = {
 // about exposure, NOT personalised financial advice or a prediction of any
 // asset's price. See IMPLICATIONS_DISCLAIMER.
 export const IMPLICATIONS = {
-  "current-account-q1": [
-    { theme: "Gold miners & bullion exporters", dir: "up", note: "Record gold prices and higher export volumes directly lift revenue and profits." },
-    { theme: "The rand", dir: "up", note: "A wider current account surplus reduces reliance on foreign capital inflows to fund SA's external position." },
-    { theme: "Manufacturers & non-mining exporters", dir: "down", note: "The surplus is concentrated in gold and PGMs — broader export competitiveness hasn't improved." },
-    { theme: "Sovereign risk premium", dir: "down", note: "A stronger external balance is a credit-positive signal to ratings agencies and bond investors." },
+  "absa-trading-update": [
+    { theme: "Absa & bank shareholders", dir: "down", note: "Softer earnings guidance and Africa-region margin compression weigh directly on near-term profitability." },
+    { theme: "SA bank credit extension", dir: "down", note: "Margin pressure gives banks less incentive to chase loan growth aggressively." },
+    { theme: "Domestically focused lenders", dir: "up", note: "Banks without heavy pan-African rate-cut exposure look relatively more resilient by comparison." },
+  ],
+  "trade-deficit-may": [
+    { theme: "Importers of capital & consumer goods", dir: "down", note: "A wider import bill and single-month deficit add modest pressure on rand-priced input costs." },
+    { theme: "Miners & agricultural exporters", dir: "up", note: "The year-to-date position is still a large cumulative surplus, so underlying export earnings remain healthy despite the monthly wobble." },
+    { theme: "The rand", dir: "down", note: "A swing to deficit removes one supportive data point, even though the cumulative external balance stays strongly positive." },
   ],
   "eskom-408-days": [
     { theme: "Manufacturers & energy-intensive industry", dir: "up", note: "Grid stability removes the load-shedding tax on output and lets factories plan production with confidence." },
